@@ -21,8 +21,9 @@ The page lets a user enter metadata fields for the selected form type:
 - Sort Title
 - Long, Medium, Short, XShort, and Tiny descriptions with matching character limits
 - Expected Duration
+- Series / Season / Episode relationship status, which indicates whether the submitted records are a fully connected new series/season/episode set or an addition to an existing series and/or season
 
-After clicking **Save Form**, the page renders a formatted JSON payload in the **Generated JSON** section below the form.
+After clicking **Save Form**, the page renders a formatted JSON payload in the **Generated JSON** section below the form. The payload includes a `relationship` object with boolean flags for `isNewSeries`, `isNewSeason`, and `isNewEpisode` so downstream tooling can determine whether the submission creates all connected records or adds a new season and/or episode to existing records.
 
 ## Repository visibility
 

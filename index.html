@@ -130,6 +130,39 @@
       height: 36px;
     }
 
+    .relationship-group {
+      grid-column: 2;
+      margin: 10px 0 0;
+      border: 1px solid var(--border);
+      background: #f8f8f8;
+      padding: 8px 10px 10px;
+    }
+
+    .relationship-group legend {
+      padding: 0 4px;
+      font-weight: 700;
+    }
+
+    .relationship-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      min-height: auto;
+      padding: 3px 0;
+      white-space: normal;
+    }
+
+    .relationship-option input {
+      width: auto;
+      margin: 1px 0 0;
+    }
+
+    .relationship-note {
+      display: block;
+      margin-top: 6px;
+      color: #333333;
+    }
+
     .actions {
       display: flex;
       justify-content: flex-end;
@@ -193,6 +226,11 @@
         padding-top: 7px;
       }
 
+      .relationship-group {
+        grid-column: 1;
+        margin-left: 0;
+      }
+
       input,
       textarea {
         border-right: 1px solid var(--border);
@@ -237,6 +275,27 @@
 
         <label for="expectedDuration">Expected Duration</label>
         <input id="expectedDuration" name="expectedDuration" class="duration" type="text" autocomplete="off">
+
+        <fieldset class="relationship-group">
+          <legend>Series / Season / Episode Relationship</legend>
+          <label class="relationship-option" for="relationshipAllNew">
+            <input id="relationshipAllNew" name="relationshipStatus" type="radio" value="newSeriesSeasonEpisode" checked>
+            New connected series, season, and episode
+          </label>
+          <label class="relationship-option" for="relationshipExistingSeriesNewSeasonEpisode">
+            <input id="relationshipExistingSeriesNewSeasonEpisode" name="relationshipStatus" type="radio" value="existingSeriesNewSeasonEpisode">
+            Existing series needs a new season and episode
+          </label>
+          <label class="relationship-option" for="relationshipExistingSeriesSeasonNewEpisode">
+            <input id="relationshipExistingSeriesSeasonNewEpisode" name="relationshipStatus" type="radio" value="existingSeriesSeasonNewEpisode">
+            Existing series and season need a new episode
+          </label>
+          <label class="relationship-option" for="relationshipExistingSeriesNewSeasonOnly">
+            <input id="relationshipExistingSeriesNewSeasonOnly" name="relationshipStatus" type="radio" value="existingSeriesNewSeasonOnly">
+            Existing series needs a new season only
+          </label>
+          <small class="relationship-note">Choose the option that shows whether the entered series, season, and episode are all connected new records or additions to existing records.</small>
+        </fieldset>
       </form>
 
       <div class="actions">
@@ -271,11 +330,26 @@
       event.preventDefault();
 
       const formData = new FormData(form);
+      const relationshipStatus = formData.get('relationshipStatus');
       const payload = {
         formType: document.querySelector('.tab.active').textContent,
         title: formData.get('title').trim(),
         shortTitle: formData.get('shortTitle').trim(),
         sortTitle: formData.get('sortTitle').trim(),
+        relationship: {
+          status: relationshipStatus,
+          isNewSeries: relationshipStatus === 'newSeriesSeasonEpisode',
+          isNewSeason: [
+            'newSeriesSeasonEpisode',
+            'existingSeriesNewSeasonEpisode',
+            'existingSeriesNewSeasonOnly'
+          ].includes(relationshipStatus),
+          isNewEpisode: [
+            'newSeriesSeasonEpisode',
+            'existingSeriesNewSeasonEpisode',
+            'existingSeriesSeasonNewEpisode'
+          ].includes(relationshipStatus)
+        },
         descriptions: {
           long: formData.get('longDescription').trim(),
           medium: formData.get('mediumDescription').trim(),
