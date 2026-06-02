@@ -130,7 +130,7 @@
       height: 36px;
     }
 
-    .relationship-group {
+    .workflow-group {
       grid-column: 2;
       margin: 10px 0 0;
       border: 1px solid var(--border);
@@ -138,12 +138,12 @@
       padding: 8px 10px 10px;
     }
 
-    .relationship-group legend {
+    .workflow-group legend {
       padding: 0 4px;
       font-weight: 700;
     }
 
-    .relationship-option {
+    .workflow-option {
       display: flex;
       align-items: flex-start;
       gap: 6px;
@@ -152,14 +152,42 @@
       white-space: normal;
     }
 
-    .relationship-option input {
+    .workflow-option input {
       width: auto;
       margin: 1px 0 0;
     }
 
-    .relationship-note {
+    .workflow-note {
       display: block;
       margin-top: 6px;
+      color: #333333;
+    }
+
+    .count-row {
+      display: grid;
+      grid-template-columns: 155px 80px 1fr;
+      align-items: center;
+      gap: 8px;
+      margin: 5px 0;
+    }
+
+    .count-row label {
+      min-height: auto;
+      padding: 0;
+      white-space: normal;
+    }
+
+    .count-row input {
+      border-right: 1px solid var(--border);
+      height: 26px;
+    }
+
+    .count-row input:disabled {
+      background: #eeeeee;
+      color: #777777;
+    }
+
+    .field-hint {
       color: #333333;
     }
 
@@ -226,9 +254,13 @@
         padding-top: 7px;
       }
 
-      .relationship-group {
+      .workflow-group {
         grid-column: 1;
         margin-left: 0;
+      }
+
+      .count-row {
+        grid-template-columns: 1fr;
       }
 
       input,
@@ -241,10 +273,10 @@
 <body>
   <main class="window">
     <nav class="tabs" aria-label="Metadata form sections">
-      <button class="tab active" type="button" aria-current="page">Series Form</button>
-      <button class="tab" type="button">Season Form</button>
-      <button class="tab" type="button">Episode Form</button>
-      <button class="tab" type="button">Extra Form</button>
+      <button class="tab active" type="button" aria-current="page" data-form-type="series">Series Form</button>
+      <button class="tab" type="button" data-form-type="season">Season Form</button>
+      <button class="tab" type="button" data-form-type="episode">Episode Form</button>
+      <button class="tab" type="button" data-form-type="extra">Extra Form</button>
     </nav>
 
     <section class="form-panel">
@@ -276,25 +308,40 @@
         <label for="expectedDuration">Expected Duration</label>
         <input id="expectedDuration" name="expectedDuration" class="duration" type="text" autocomplete="off">
 
-        <fieldset class="relationship-group">
+        <fieldset class="workflow-group" id="relationshipFieldset">
           <legend>Series / Season / Episode Relationship</legend>
-          <label class="relationship-option" for="relationshipAllNew">
+          <label class="workflow-option" for="relationshipAllNew">
             <input id="relationshipAllNew" name="relationshipStatus" type="radio" value="newSeriesSeasonEpisode" checked>
             New connected series, season, and episode
           </label>
-          <label class="relationship-option" for="relationshipExistingSeriesNewSeasonEpisode">
+          <label class="workflow-option" for="relationshipExistingSeriesNewSeasonEpisode">
             <input id="relationshipExistingSeriesNewSeasonEpisode" name="relationshipStatus" type="radio" value="existingSeriesNewSeasonEpisode">
             Existing series needs a new season and episode
           </label>
-          <label class="relationship-option" for="relationshipExistingSeriesSeasonNewEpisode">
+          <label class="workflow-option" for="relationshipExistingSeriesSeasonNewEpisode">
             <input id="relationshipExistingSeriesSeasonNewEpisode" name="relationshipStatus" type="radio" value="existingSeriesSeasonNewEpisode">
             Existing series and season need a new episode
           </label>
-          <label class="relationship-option" for="relationshipExistingSeriesNewSeasonOnly">
+          <label class="workflow-option" for="relationshipExistingSeriesNewSeasonOnly">
             <input id="relationshipExistingSeriesNewSeasonOnly" name="relationshipStatus" type="radio" value="existingSeriesNewSeasonOnly">
             Existing series needs a new season only
           </label>
-          <small class="relationship-note">Choose the option that shows whether the entered series, season, and episode are all connected new records or additions to existing records.</small>
+          <small class="workflow-note">Choose the option that shows whether the entered series, season, and episode are all connected new records or additions to existing records.</small>
+        </fieldset>
+
+        <fieldset class="workflow-group" id="additionCounts">
+          <legend>How Many New Records?</legend>
+          <div class="count-row" data-count-row="season">
+            <label for="seasonCount">Seasons to Add</label>
+            <input id="seasonCount" name="seasonCount" type="number" min="0" step="1" value="1" inputmode="numeric">
+            <span class="field-hint" id="seasonCountHint">Use 2+ when multiple new season forms are needed.</span>
+          </div>
+          <div class="count-row" data-count-row="episode">
+            <label for="episodeCount">Episodes to Add</label>
+            <input id="episodeCount" name="episodeCount" type="number" min="0" step="1" value="1" inputmode="numeric">
+            <span class="field-hint" id="episodeCountHint">Use 2+ when multiple new episode forms are needed.</span>
+          </div>
+          <small class="workflow-note">These counts drive the generated plan for which individual Series, Season, and Episode forms need to be created.</small>
         </fieldset>
       </form>
 
@@ -313,6 +360,137 @@
     const form = document.getElementById('metadataForm');
     const output = document.getElementById('jsonOutput');
     const tabs = document.querySelectorAll('.tab');
+    const seasonCount = document.getElementById('seasonCount');
+    const episodeCount = document.getElementById('episodeCount');
+    const relationshipFieldset = document.getElementById('relationshipFieldset');
+    const additionCounts = document.getElementById('additionCounts');
+    const countRows = {
+      season: document.querySelector('[data-count-row="season"]'),
+      episode: document.querySelector('[data-count-row="episode"]')
+    };
+
+    const relationshipRules = {
+      newSeriesSeasonEpisode: {
+        isNewSeries: true,
+        addsSeason: true,
+        addsEpisode: true,
+        seriesAction: 'create'
+      },
+      existingSeriesNewSeasonEpisode: {
+        isNewSeries: false,
+        addsSeason: true,
+        addsEpisode: true,
+        seriesAction: 'linkExisting'
+      },
+      existingSeriesSeasonNewEpisode: {
+        isNewSeries: false,
+        addsSeason: false,
+        addsEpisode: true,
+        seriesAction: 'linkExisting'
+      },
+      existingSeriesNewSeasonOnly: {
+        isNewSeries: false,
+        addsSeason: true,
+        addsEpisode: false,
+        seriesAction: 'linkExisting'
+      }
+    };
+
+    function activeTab() {
+      return document.querySelector('.tab.active');
+    }
+
+    function activeFormType() {
+      return activeTab().dataset.formType;
+    }
+
+    function numberValue(input) {
+      return Number.parseInt(input.value, 10) || 0;
+    }
+
+    function selectedRelationshipStatus() {
+      return document.querySelector('input[name="relationshipStatus"]:checked').value;
+    }
+
+    function setCountAvailability() {
+      const formType = activeFormType();
+      const relationshipStatus = selectedRelationshipStatus();
+      const relationshipRule = relationshipRules[relationshipStatus];
+      const usesRelationship = formType !== 'extra';
+      const usesSeasonCount = usesRelationship && formType !== 'episode' && relationshipRule.addsSeason;
+      const usesEpisodeCount = usesRelationship && relationshipRule.addsEpisode;
+
+      relationshipFieldset.disabled = !usesRelationship;
+      relationshipFieldset.hidden = !usesRelationship;
+      additionCounts.hidden = !usesRelationship;
+      countRows.season.hidden = !usesRelationship;
+      countRows.episode.hidden = !usesRelationship;
+      seasonCount.disabled = !usesSeasonCount;
+      episodeCount.disabled = !usesEpisodeCount;
+
+      if (!usesSeasonCount) {
+        seasonCount.value = 0;
+      } else if (numberValue(seasonCount) < 1) {
+        seasonCount.value = 1;
+      }
+
+      if (!usesEpisodeCount) {
+        episodeCount.value = 0;
+      } else if (numberValue(episodeCount) < 1) {
+        episodeCount.value = 1;
+      }
+    }
+
+    function buildFormPlan(formType, relationshipStatus, requestedSeasonCount, requestedEpisodeCount) {
+      if (formType === 'extra') {
+        return {
+          formContext: 'extra',
+          note: 'Extra forms attach to existing metadata and do not create series, season, or episode records.',
+          seriesForms: 0,
+          seasonForms: 0,
+          episodeForms: 0,
+          hasMultipleSeasons: false,
+          hasMultipleEpisodes: false,
+          formsToCreate: []
+        };
+      }
+
+      const relationshipRule = relationshipRules[relationshipStatus];
+      const createsSeries = formType === 'series' && relationshipRule.isNewSeries;
+      const seasonForms = relationshipRule.addsSeason && formType !== 'episode' ? requestedSeasonCount : 0;
+      const episodeForms = relationshipRule.addsEpisode ? requestedEpisodeCount : 0;
+      const formsToCreate = [];
+
+      if (createsSeries) {
+        formsToCreate.push({ form: 'Series Form', count: 1, action: 'create' });
+      }
+
+      if (seasonForms > 0) {
+        formsToCreate.push({
+          form: 'Season Form',
+          count: seasonForms,
+          action: relationshipRule.isNewSeries ? 'createAndConnectToNewSeries' : 'createAndConnectToExistingSeries'
+        });
+      }
+
+      if (episodeForms > 0) {
+        formsToCreate.push({
+          form: 'Episode Form',
+          count: episodeForms,
+          action: seasonForms > 0 ? 'createAndConnectAcrossNewSeasonRecords' : 'createAndConnectToExistingSeason'
+        });
+      }
+
+      return {
+        formContext: formType,
+        seriesForms: createsSeries ? 1 : 0,
+        seasonForms,
+        episodeForms,
+        hasMultipleSeasons: seasonForms > 1,
+        hasMultipleEpisodes: episodeForms > 1,
+        formsToCreate
+      };
+    }
 
     tabs.forEach((tab) => {
       tab.addEventListener('click', () => {
@@ -323,33 +501,44 @@
 
         tab.classList.add('active');
         tab.setAttribute('aria-current', 'page');
+        setCountAvailability();
       });
     });
+
+    form.addEventListener('change', (event) => {
+      if (event.target.name === 'relationshipStatus') {
+        setCountAvailability();
+      }
+    });
+
+    setCountAvailability();
 
     form.addEventListener('submit', (event) => {
       event.preventDefault();
 
       const formData = new FormData(form);
-      const relationshipStatus = formData.get('relationshipStatus');
+      const formType = activeFormType();
+      const relationshipStatus = selectedRelationshipStatus();
+      const requestedSeasonCount = numberValue(seasonCount);
+      const requestedEpisodeCount = numberValue(episodeCount);
+      const relationshipRule = relationshipRules[relationshipStatus];
       const payload = {
-        formType: document.querySelector('.tab.active').textContent,
+        formType: activeTab().textContent,
+        formContext: formType,
         title: formData.get('title').trim(),
         shortTitle: formData.get('shortTitle').trim(),
         sortTitle: formData.get('sortTitle').trim(),
         relationship: {
           status: relationshipStatus,
-          isNewSeries: relationshipStatus === 'newSeriesSeasonEpisode',
-          isNewSeason: [
-            'newSeriesSeasonEpisode',
-            'existingSeriesNewSeasonEpisode',
-            'existingSeriesNewSeasonOnly'
-          ].includes(relationshipStatus),
-          isNewEpisode: [
-            'newSeriesSeasonEpisode',
-            'existingSeriesNewSeasonEpisode',
-            'existingSeriesSeasonNewEpisode'
-          ].includes(relationshipStatus)
+          isNewSeries: formType === 'series' && relationshipRule.isNewSeries,
+          isNewSeason: formType !== 'extra' && formType !== 'episode' && relationshipRule.addsSeason,
+          isNewEpisode: formType !== 'extra' && relationshipRule.addsEpisode,
+          requestedSeasonCount,
+          requestedEpisodeCount,
+          hasMultipleSeasons: requestedSeasonCount > 1,
+          hasMultipleEpisodes: requestedEpisodeCount > 1
         },
+        formPlan: buildFormPlan(formType, relationshipStatus, requestedSeasonCount, requestedEpisodeCount),
         descriptions: {
           long: formData.get('longDescription').trim(),
           medium: formData.get('mediumDescription').trim(),
