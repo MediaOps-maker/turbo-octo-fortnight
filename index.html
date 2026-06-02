@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Metadata JSON Form</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --border: #b8b8b8;
+      --tab-border: #d1d1d1;
+      --panel: #eeeeee;
+      --field: #ffffff;
+      --text: #000000;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #ffffff;
+      color: var(--text);
+      font: 12px/1.25 Arial, Helvetica, sans-serif;
+    }
+
+    .window {
+      width: min(100vw, 628px);
+      min-height: 690px;
+      border: 1px solid #cccccc;
+      border-radius: 0 0 5px 5px;
+      background: var(--panel);
+      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+    }
+
+    .tabs {
+      display: flex;
+      align-items: flex-start;
+      height: 23px;
+      background: #f3f3f3;
+      border-bottom: 1px solid #dddddd;
+    }
+
+    .tab {
+      appearance: none;
+      border: 1px solid var(--tab-border);
+      border-left: 0;
+      border-top: 0;
+      border-bottom-color: #e7e7e7;
+      border-radius: 0;
+      background: #f5f5f5;
+      color: #000000;
+      cursor: pointer;
+      font: inherit;
+      height: 23px;
+      padding: 2px 5px 3px;
+    }
+
+    .tab:first-child {
+      border-left: 0;
+    }
+
+    .tab.active {
+      background: #ffffff;
+      border-bottom-color: #ffffff;
+    }
+
+    .form-panel {
+      padding: 15px 16px 52px 17px;
+    }
+
+    .metadata-form {
+      display: grid;
+      grid-template-columns: 111px 1fr;
+      align-items: stretch;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      min-height: 36px;
+      padding-right: 8px;
+      white-space: nowrap;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-left-color: #9f9f9f;
+      border-right: 0;
+      background: var(--field);
+      color: var(--text);
+      font: inherit;
+      outline: none;
+      padding: 4px 5px;
+      resize: none;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: #707070;
+      box-shadow: inset 0 0 0 1px #fdfdfd;
+    }
+
+    .single-line {
+      height: 37px;
+    }
+
+    .long {
+      height: 179px;
+    }
+
+    .medium {
+      height: 84px;
+    }
+
+    .short {
+      height: 68px;
+    }
+
+    .xshort {
+      height: 53px;
+    }
+
+    .tiny,
+    .duration {
+      height: 36px;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+
+    button[type="submit"] {
+      min-width: 75px;
+      height: 24px;
+      border: 1px solid #c8c8c8;
+      border-radius: 4px;
+      background: linear-gradient(#ffffff, #f4f4f4);
+      color: #000000;
+      cursor: pointer;
+      font: inherit;
+      padding: 2px 10px;
+    }
+
+    button[type="submit"]:active {
+      background: linear-gradient(#eeeeee, #ffffff);
+    }
+
+    .output-wrap {
+      margin-top: 15px;
+    }
+
+    .output-wrap h2 {
+      margin: 0 0 6px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    #jsonOutput {
+      width: 100%;
+      min-height: 120px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      font: 12px/1.4 Consolas, "Courier New", monospace;
+      overflow: auto;
+      padding: 8px;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 560px) {
+      .window {
+        width: 100%;
+      }
+
+      .tabs {
+        height: auto;
+        flex-wrap: wrap;
+      }
+
+      .metadata-form {
+        grid-template-columns: 1fr;
+        gap: 3px;
+      }
+
+      label {
+        min-height: auto;
+        padding-top: 7px;
+      }
+
+      input,
+      textarea {
+        border-right: 1px solid var(--border);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="window">
+    <nav class="tabs" aria-label="Metadata form sections">
+      <button class="tab active" type="button" aria-current="page">Series Form</button>
+      <button class="tab" type="button">Season Form</button>
+      <button class="tab" type="button">Episode Form</button>
+      <button class="tab" type="button">Extra Form</button>
+    </nav>
+
+    <section class="form-panel">
+      <form id="metadataForm" class="metadata-form">
+        <label for="title">Title</label>
+        <input id="title" name="title" class="single-line" type="text" autocomplete="off" autofocus>
+
+        <label for="shortTitle">Short Title (25 chars)</label>
+        <input id="shortTitle" name="shortTitle" class="single-line" type="text" maxlength="25" autocomplete="off">
+
+        <label for="sortTitle">Sort Title</label>
+        <input id="sortTitle" name="sortTitle" class="single-line" type="text" autocomplete="off">
+
+        <label for="longDescription">Long (1000 chars)</label>
+        <textarea id="longDescription" name="longDescription" class="long" maxlength="1000"></textarea>
+
+        <label for="mediumDescription">Medium (250 chars)</label>
+        <textarea id="mediumDescription" name="mediumDescription" class="medium" maxlength="250"></textarea>
+
+        <label for="shortDescription">Short (99 chars)</label>
+        <textarea id="shortDescription" name="shortDescription" class="short" maxlength="99"></textarea>
+
+        <label for="xshortDescription">XShort (60 chars)</label>
+        <textarea id="xshortDescription" name="xshortDescription" class="xshort" maxlength="60"></textarea>
+
+        <label for="tinyDescription">Tiny (40 chars)</label>
+        <textarea id="tinyDescription" name="tinyDescription" class="tiny" maxlength="40"></textarea>
+
+        <label for="expectedDuration">Expected Duration</label>
+        <input id="expectedDuration" name="expectedDuration" class="duration" type="text" autocomplete="off">
+      </form>
+
+      <div class="actions">
+        <button type="submit" form="metadataForm">Save Form</button>
+      </div>
+
+      <section class="output-wrap" aria-live="polite">
+        <h2>Generated JSON</h2>
+        <pre id="jsonOutput">Submit the form to generate JSON.</pre>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('metadataForm');
+    const output = document.getElementById('jsonOutput');
+    const tabs = document.querySelectorAll('.tab');
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        tabs.forEach((item) => {
+          item.classList.remove('active');
+          item.removeAttribute('aria-current');
+        });
+
+        tab.classList.add('active');
+        tab.setAttribute('aria-current', 'page');
+      });
+    });
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      const formData = new FormData(form);
+      const payload = {
+        formType: document.querySelector('.tab.active').textContent,
+        title: formData.get('title').trim(),
+        shortTitle: formData.get('shortTitle').trim(),
+        sortTitle: formData.get('sortTitle').trim(),
+        descriptions: {
+          long: formData.get('longDescription').trim(),
+          medium: formData.get('mediumDescription').trim(),
+          short: formData.get('shortDescription').trim(),
+          xshort: formData.get('xshortDescription').trim(),
+          tiny: formData.get('tinyDescription').trim()
+        },
+        expectedDuration: formData.get('expectedDuration').trim()
+      };
+
+      output.textContent = JSON.stringify(payload, null, 2);
+    });
+  </script>
+</body>
+</html>
