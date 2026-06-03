@@ -19,11 +19,17 @@
     }
 
     body {
+      display: flex;
+      justify-content: center;
       margin: 0;
       min-height: 100vh;
       background: #ffffff;
       color: var(--text);
       font: 12px/1.25 Arial, Helvetica, sans-serif;
+    }
+
+    [hidden] {
+      display: none !important;
     }
 
     .window {
@@ -73,7 +79,7 @@
 
     .metadata-form {
       display: grid;
-      grid-template-columns: 111px 1fr;
+      grid-template-columns: 150px 1fr;
       align-items: stretch;
     }
 
@@ -82,7 +88,7 @@
       align-items: center;
       min-height: 36px;
       padding-right: 8px;
-      white-space: nowrap;
+      white-space: normal;
     }
 
     input,
@@ -131,8 +137,8 @@
     }
 
     .workflow-group {
-      grid-column: 2;
-      margin: 10px 0 0;
+      grid-column: 1 / -1;
+      margin: 10px 0 0 150px;
       border: 1px solid var(--border);
       background: #f8f8f8;
       padding: 8px 10px 10px;
@@ -344,6 +350,10 @@
             <input id="relationshipExistingSeriesNewSeasonOnly" name="relationshipStatus" type="radio" value="existingSeriesNewSeasonOnly">
             Existing series needs a new season only
           </label>
+          <label class="workflow-option" for="relationshipExistingEpisode">
+            <input id="relationshipExistingEpisode" name="relationshipStatus" type="radio" value="existingEpisode">
+            Existing episode
+          </label>
           <small class="workflow-note">Choose the option that shows whether the entered series, season, and episode are all connected new records or additions to existing records.</small>
         </fieldset>
 
@@ -534,6 +544,13 @@
         addsSeason: true,
         addsEpisode: false,
         seriesAction: 'linkExisting'
+      },
+      existingEpisode: {
+        isNewSeries: false,
+        addsSeason: false,
+        addsEpisode: false,
+        isExistingEpisode: true,
+        seriesAction: 'linkExisting'
       }
     };
 
@@ -594,7 +611,7 @@
           'existingSeriesNewSeasonOnly'
         ].includes(relationshipStatus),
         season: relationshipStatus === 'existingSeriesSeasonNewEpisode',
-        episode: false
+        episode: relationshipStatus === 'existingEpisode'
       };
     }
 
@@ -669,7 +686,9 @@
       const relationshipRule = relationshipRules[relationshipStatus];
       const createsSeries = formType === 'series' && relationshipRule.isNewSeries;
       const seasonForms = relationshipRule.addsSeason && formType !== 'episode' ? requestedSeasonCount : 0;
-      const episodeForms = relationshipRule.addsEpisode ? requestedEpisodeCount : 0;
+      const episodeForms = relationshipRule.addsEpisode
+        ? Math.max(seasonForms, 1) * requestedEpisodeCount
+        : 0;
       const formsToCreate = [];
 
       if (createsSeries) {
@@ -688,7 +707,18 @@
         formsToCreate.push({
           form: 'Episode Form',
           count: episodeForms,
-          action: seasonForms > 0 ? 'createAndConnectAcrossNewSeasonRecords' : 'createAndConnectToExistingSeason'
+          action: seasonForms > 0 ? 'createAndConnectAcrossNewSeasonRecords' : 'createAndConnectToExistingSeason',
+          episodesPerSeason: requestedEpisodeCount,
+          seasonCount: Math.max(seasonForms, 1)
+        });
+      }
+
+      if (relationshipRule.isExistingEpisode) {
+        formsToCreate.push({
+          form: 'Episode Form',
+          count: 1,
+          action: 'linkExistingEpisode',
+          parentReferenceId: existingReferenceValues.episodeId
         });
       }
 
@@ -751,7 +781,10 @@
           total: entry.count,
           action: entry.action,
           parentType: entry.parentType || null,
-          parentReferenceId: entry.parentReferenceId || null
+          parentReferenceId: entry.parentReferenceId || null,
+          associatedSeasonNumber: formType === 'episode' && entry.episodesPerSeason
+            ? Math.floor(offset / entry.episodesPerSeason) + 1
+            : null
         }));
       });
     }
@@ -793,6 +826,11 @@
       form.elements.title.required = !isSeasonForm;
       seasonNumber.required = isSeasonForm;
       episodeSeasonNumber.required = isEpisodeForm;
+      episodeSeasonNumber.max = Math.max(numberValue(seasonCount), 1);
+
+      if (isEpisodeForm && item.associatedSeasonNumber && !episodeSeasonNumber.value) {
+        episodeSeasonNumber.value = item.associatedSeasonNumber;
+      }
     }
 
     function updateWorkflowProgress() {
@@ -951,6 +989,7 @@
           isNewSeries: formType === 'series' && relationshipRule.isNewSeries,
           isNewSeason: formType !== 'extra' && formType !== 'episode' && relationshipRule.addsSeason,
           isNewEpisode: formType !== 'extra' && relationshipRule.addsEpisode,
+          isExistingEpisode: relationshipStatus === 'existingEpisode',
           requestedSeasonCount,
           requestedEpisodeCount,
           hasMultipleSeasons: requestedSeasonCount > 1,
