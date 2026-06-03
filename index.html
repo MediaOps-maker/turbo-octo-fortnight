@@ -229,10 +229,12 @@
     .actions {
       display: flex;
       justify-content: flex-end;
+      gap: 8px;
       margin-top: 12px;
     }
 
-    button[type="submit"] {
+    button[type="submit"],
+    .download-json {
       min-width: 75px;
       height: 24px;
       border: 1px solid #c8c8c8;
@@ -244,8 +246,14 @@
       padding: 2px 10px;
     }
 
-    button[type="submit"]:active {
+    button[type="submit"]:active,
+    .download-json:active:not(:disabled) {
       background: linear-gradient(#eeeeee, #ffffff);
+    }
+
+    .download-json:disabled {
+      color: #777777;
+      cursor: default;
     }
 
     .output-wrap {
@@ -432,6 +440,7 @@
       </form>
 
       <div class="actions">
+        <button id="downloadJson" class="download-json" type="button" disabled>Download JSON</button>
         <button type="submit" form="metadataForm">Save Form</button>
       </div>
 
@@ -445,6 +454,7 @@
   <script>
     const form = document.getElementById('metadataForm');
     const output = document.getElementById('jsonOutput');
+    const downloadJson = document.getElementById('downloadJson');
     const tabs = document.querySelectorAll('.tab');
     const seasonCount = document.getElementById('seasonCount');
     const episodeCount = document.getElementById('episodeCount');
@@ -485,6 +495,7 @@
     let workflowItems = [];
     let currentWorkflowIndex = 0;
     let savedFormEntries = {};
+    let generatedJsonText = '';
 
     const relationshipRules = {
       newSeriesSeasonEpisode: {
@@ -677,6 +688,20 @@
       };
     }
 
+    function allWorkflowItemsCompleted() {
+      return workflowItems.length > 0 && workflowItems.every((item) => savedFormEntries[item.id]);
+    }
+
+    function updateDownloadAvailability() {
+      downloadJson.disabled = !(generatedJsonText && allWorkflowItemsCompleted());
+    }
+
+    function clearGeneratedJson() {
+      generatedJsonText = '';
+      output.textContent = 'Submit the form to generate JSON.';
+      updateDownloadAvailability();
+    }
+
     function formTypeFromLabel(label) {
       if (label.startsWith('Series')) {
         return 'series';
@@ -772,11 +797,13 @@
           ...item,
           values: captureMetadataFields()
         };
+        updateDownloadAvailability();
       }
     }
 
     function showWorkItem(index) {
       saveCurrentWorkItem();
+      clearGeneratedJson();
       currentWorkflowIndex = index;
       const item = currentWorkflowItem();
       loadMetadataFields(item && savedFormEntries[item.id] ? savedFormEntries[item.id].values : {});
@@ -795,6 +822,7 @@
         currentWorkflowIndex = 0;
         savedFormEntries = {};
         loadMetadataFields();
+        clearGeneratedJson();
         setCountAvailability();
       });
     });
@@ -804,6 +832,7 @@
         currentWorkflowIndex = 0;
         savedFormEntries = {};
         loadMetadataFields();
+        clearGeneratedJson();
         setCountAvailability();
       }
     });
@@ -822,6 +851,20 @@
       if (currentWorkflowIndex < workflowItems.length - 1) {
         showWorkItem(currentWorkflowIndex + 1);
       }
+    });
+
+    downloadJson.addEventListener('click', () => {
+      if (downloadJson.disabled || !generatedJsonText) {
+        return;
+      }
+
+      const blob = new Blob([generatedJsonText], { type: 'application/json' });
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = 'metadata-form.json';
+      link.click();
+      URL.revokeObjectURL(downloadUrl);
     });
 
     setCountAvailability();
@@ -847,6 +890,7 @@
         formType: activeTab().textContent,
         formContext: formType,
         currentWorkItem: currentItem,
+        workflowComplete: allWorkflowItemsCompleted(),
         generatedFormEntries: Object.values(savedFormEntries),
         title: formData.get('title').trim(),
         shortTitle: formData.get('shortTitle').trim(),
@@ -881,7 +925,9 @@
         expectedDuration: formData.get('expectedDuration').trim()
       };
 
-      output.textContent = JSON.stringify(payload, null, 2);
+      generatedJsonText = JSON.stringify(payload, null, 2);
+      output.textContent = generatedJsonText;
+      updateDownloadAvailability();
     });
   </script>
 </body>
