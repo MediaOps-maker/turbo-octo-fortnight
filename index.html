@@ -1,0 +1,1052 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Metadata JSON Form</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --canvas: #232325;
+      --surface: rgba(35, 35, 37, 0.92);
+      --surface-soft: rgba(255, 255, 255, 0.06);
+      --surface-strong: rgba(255, 255, 255, 0.1);
+      --field: #171719;
+      --field-border: rgba(255, 255, 255, 0.28);
+      --text: #ffffff;
+      --muted: #b9bbbf;
+      --disabled: #7f8288;
+      --blue: #0a7daf;
+      --blue-bright: #16a3d8;
+      --red: #e03024;
+      --radius: 8px;
+      --pill: 999px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(90deg, rgba(35, 35, 37, 0.96) 0%, rgba(35, 35, 37, 0.9) 48%, rgba(35, 35, 37, 0.7) 100%),
+        url("https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1600&q=80") center / cover fixed,
+        var(--canvas);
+      color: var(--text);
+      font: 15px/1.55 "NeulisSans", ui-rounded, "Avenir Next", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .window {
+      width: min(calc(100vw - 32px), 1060px);
+      min-height: 100vh;
+      background: linear-gradient(180deg, rgba(35, 35, 37, 0.96), rgba(25, 25, 27, 0.98));
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+    }
+
+    .hero {
+      padding: 34px clamp(22px, 5vw, 56px) 18px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--blue-bright);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      max-width: 680px;
+      margin: 0;
+      font-size: clamp(2.1rem, 6vw, 4.4rem);
+      line-height: 0.95;
+      letter-spacing: -0.06em;
+    }
+
+    .hero p:last-child {
+      max-width: 570px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 0 clamp(22px, 5vw, 56px) 20px;
+    }
+
+    .tab {
+      appearance: none;
+      min-height: 42px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: var(--pill);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 800;
+      padding: 8px 18px;
+    }
+
+    .tab.active {
+      border-color: var(--text);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .form-panel {
+      padding: 0 clamp(22px, 5vw, 56px) 56px;
+    }
+
+    .metadata-form {
+      display: grid;
+      grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
+      align-items: start;
+      gap: 12px 18px;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      color: var(--text);
+      font-weight: 750;
+      line-height: 1.25;
+      white-space: normal;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      border-radius: var(--radius);
+      background: var(--field);
+      color: var(--text);
+      font: inherit;
+      outline: none;
+      padding: 10px 12px;
+      resize: vertical;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: var(--disabled);
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: var(--blue-bright);
+      box-shadow: 0 0 0 3px rgba(10, 125, 175, 0.28);
+    }
+
+    input:invalid:not(:placeholder-shown),
+    textarea:invalid:not(:placeholder-shown) {
+      border-color: var(--red);
+    }
+
+    .single-line,
+    .tiny,
+    .duration {
+      min-height: 44px;
+    }
+
+    .long {
+      min-height: 190px;
+    }
+
+    .medium {
+      min-height: 112px;
+    }
+
+    .short {
+      min-height: 86px;
+    }
+
+    .xshort {
+      min-height: 68px;
+    }
+
+    .workflow-group {
+      grid-column: 1 / -1;
+      margin: 8px 0 18px;
+      border: 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
+      background: transparent;
+      padding: 18px 0 0;
+    }
+
+    .workflow-group legend {
+      padding: 0 12px 0 0;
+      color: var(--text);
+      font-size: 1.05rem;
+      font-weight: 850;
+    }
+
+    .workflow-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      min-height: auto;
+      padding: 8px 0;
+      color: var(--text);
+      font-weight: 650;
+      white-space: normal;
+    }
+
+    .workflow-option input {
+      width: 18px;
+      min-width: 18px;
+      height: 18px;
+      margin: 2px 0 0;
+      accent-color: var(--blue);
+    }
+
+    .workflow-note,
+    .field-hint,
+    .progress-detail {
+      color: var(--muted);
+    }
+
+    .workflow-note {
+      display: block;
+      margin-top: 8px;
+      font-size: 0.9rem;
+    }
+
+    .workflow-row,
+    .count-row {
+      display: grid;
+      grid-template-columns: minmax(160px, 220px) minmax(110px, 150px) minmax(200px, 1fr);
+      align-items: center;
+      gap: 12px;
+      margin: 12px 0;
+    }
+
+    .workflow-row label,
+    .count-row label {
+      min-height: auto;
+      padding: 0;
+      white-space: normal;
+    }
+
+    .workflow-row input,
+    .count-row input {
+      min-height: 44px;
+    }
+
+    .workflow-row input:disabled,
+    .count-row input:disabled {
+      border-color: rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--disabled);
+    }
+
+    .progress-summary {
+      margin: 0 0 4px;
+      font-weight: 850;
+    }
+
+    .progress-actions,
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .progress-actions {
+      margin-top: 12px;
+    }
+
+    .actions {
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    button[type="submit"],
+    .download-json,
+    .progress-actions button {
+      min-height: 44px;
+      border: 1px solid transparent;
+      border-radius: var(--pill);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 850;
+      padding: 10px 20px;
+    }
+
+    button[type="submit"] {
+      background: var(--blue);
+      color: var(--text);
+    }
+
+    button[type="submit"]:hover,
+    .download-json:hover:not(:disabled),
+    .progress-actions button:hover:not(:disabled) {
+      filter: brightness(1.08);
+    }
+
+    .download-json,
+    .progress-actions button {
+      border-color: rgba(255, 255, 255, 0.42);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+
+    .download-json:disabled,
+    .progress-actions button:disabled {
+      border-color: rgba(255, 255, 255, 0.16);
+      color: var(--disabled);
+      cursor: default;
+      filter: none;
+    }
+
+    .output-wrap {
+      margin-top: 28px;
+    }
+
+    .output-wrap h2 {
+      margin: 0 0 10px;
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 850;
+    }
+
+    #jsonOutput {
+      width: 100%;
+      min-height: 170px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: var(--radius);
+      background: rgba(0, 0, 0, 0.38);
+      color: var(--text);
+      font: 0.88rem/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow: auto;
+      padding: 16px;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 720px) {
+      .window {
+        width: 100%;
+      }
+
+      .metadata-form,
+      .workflow-row,
+      .count-row {
+        grid-template-columns: 1fr;
+      }
+
+      label {
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="window">
+    <header class="hero">
+      <p class="eyebrow">metadata studio</p>
+      <h1>Build your lineup.</h1>
+      <p>Select the relationship first, then move through each generated form and export one clean JSON file.</p>
+    </header>
+    <nav class="tabs" aria-label="Metadata form sections">
+      <button class="tab active" type="button" aria-current="page" data-form-type="series">Series Form</button>
+      <button class="tab" type="button" data-form-type="season">Season Form</button>
+      <button class="tab" type="button" data-form-type="episode">Episode Form</button>
+      <button class="tab" type="button" data-form-type="extra">Extra Form</button>
+    </nav>
+
+    <section class="form-panel">
+      <form id="metadataForm" class="metadata-form">
+
+        <fieldset class="workflow-group" id="relationshipFieldset">
+          <legend>Series / Season / Episode Relationship</legend>
+          <label class="workflow-option" for="relationshipAllNew">
+            <input id="relationshipAllNew" name="relationshipStatus" type="radio" value="newSeriesSeasonEpisode" checked>
+            New connected series, season, and episode
+          </label>
+          <label class="workflow-option" for="relationshipExistingSeriesNewSeasonEpisode">
+            <input id="relationshipExistingSeriesNewSeasonEpisode" name="relationshipStatus" type="radio" value="existingSeriesNewSeasonEpisode">
+            Existing series needs a new season and episode
+          </label>
+          <label class="workflow-option" for="relationshipExistingSeriesSeasonNewEpisode">
+            <input id="relationshipExistingSeriesSeasonNewEpisode" name="relationshipStatus" type="radio" value="existingSeriesSeasonNewEpisode">
+            Existing series and season need a new episode
+          </label>
+          <small class="workflow-note">Choose the option that shows whether the entered series, season, and episode are all connected new records or additions to existing records.</small>
+        </fieldset>
+
+        <fieldset class="workflow-group" id="additionCounts">
+          <legend>How Many New Records?</legend>
+          <div class="count-row" data-count-row="season">
+            <label for="seasonCount">Seasons to Add</label>
+            <input id="seasonCount" name="seasonCount" type="number" min="0" step="1" value="1" inputmode="numeric">
+            <span class="field-hint" id="seasonCountHint">Use 2+ when multiple new season forms are needed.</span>
+          </div>
+          <div class="count-row" data-count-row="episode">
+            <label for="episodeCount">Episodes to Add</label>
+            <input id="episodeCount" name="episodeCount" type="number" min="0" step="1" value="1" inputmode="numeric">
+            <span class="field-hint" id="episodeCountHint">Use 2+ when multiple new episode forms are needed.</span>
+          </div>
+          <small class="workflow-note">These counts drive the generated plan for which individual Series, Season, and Episode forms need to be created.</small>
+        </fieldset>
+
+        <fieldset class="workflow-group" id="extraParentFieldset" hidden>
+          <legend>Extra Parent</legend>
+          <label class="workflow-option" for="extraParentSeries">
+            <input id="extraParentSeries" name="extraParentType" type="radio" value="series" checked>
+            Child of an existing series
+          </label>
+          <label class="workflow-option" for="extraParentSeason">
+            <input id="extraParentSeason" name="extraParentType" type="radio" value="season">
+            Child of an existing season
+          </label>
+          <label class="workflow-option" for="extraParentEpisode">
+            <input id="extraParentEpisode" name="extraParentType" type="radio" value="episode">
+            Child of an existing episode
+          </label>
+          <small class="workflow-note">Choose the existing parent record that this Extra should attach to.</small>
+        </fieldset>
+
+        <fieldset class="workflow-group" id="existingReferences" hidden>
+          <legend>Required Existing References</legend>
+          <div class="workflow-row" data-reference-row="series">
+            <label for="existingSeriesId">Existing Series ID</label>
+            <input id="existingSeriesId" name="existingSeriesId" type="text" autocomplete="off" disabled>
+            <span class="field-hint">Required when adding to an existing series or attaching an Extra to a series.</span>
+          </div>
+          <div class="workflow-row" data-reference-row="season">
+            <label for="existingSeasonId">Existing Season ID</label>
+            <input id="existingSeasonId" name="existingSeasonId" type="text" autocomplete="off" disabled>
+            <span class="field-hint">Required when adding to an existing season or attaching an Extra to a season.</span>
+          </div>
+          <div class="workflow-row" data-reference-row="episode">
+            <label for="existingEpisodeId">Existing Episode ID</label>
+            <input id="existingEpisodeId" name="existingEpisodeId" type="text" autocomplete="off" disabled>
+            <span class="field-hint">Required when attaching an Extra to an existing episode.</span>
+          </div>
+          <small class="workflow-note">Only references required by the active form and relationship choice are enabled and required.</small>
+        </fieldset>
+
+        <fieldset class="workflow-group" id="workflowProgress" hidden>
+          <legend>Current Form Progress</legend>
+          <p class="progress-summary" id="currentWorkItemSummary">Current form: 1 of 1</p>
+          <p class="progress-detail" id="currentWorkItemDetail">Fill out this form, then continue to the next generated form.</p>
+          <div class="progress-actions">
+            <button id="previousWorkItem" type="button">Previous</button>
+            <button id="nextWorkItem" type="button">Next</button>
+          </div>
+          <small class="workflow-note">The next generated form becomes available after the current required fields are complete.</small>
+        </fieldset>
+
+        <label class="season-form-field" for="seasonNumber" hidden>Season Number</label>
+        <input id="seasonNumber" name="seasonNumber" class="single-line season-form-field" type="number" min="1" step="1" inputmode="numeric" disabled hidden>
+
+        <label class="episode-form-field" for="episodeSeasonNumber" hidden>Episode Season Number</label>
+        <input id="episodeSeasonNumber" name="episodeSeasonNumber" class="single-line episode-form-field" type="number" min="1" step="1" inputmode="numeric" disabled hidden>
+
+        <label class="metadata-field" for="title">Title</label>
+        <input id="title" name="title" class="single-line metadata-field" type="text" autocomplete="off" autofocus required>
+
+        <label class="metadata-field" for="shortTitle">Short Title (25 chars)</label>
+        <input id="shortTitle" name="shortTitle" class="single-line metadata-field" type="text" maxlength="25" autocomplete="off">
+
+        <label class="metadata-field" for="sortTitle">Sort Title</label>
+        <input id="sortTitle" name="sortTitle" class="single-line metadata-field" type="text" autocomplete="off">
+
+        <label class="metadata-field" for="longDescription">Long (1000 chars)</label>
+        <textarea id="longDescription" name="longDescription" class="long metadata-field" maxlength="1000"></textarea>
+
+        <label class="metadata-field" for="mediumDescription">Medium (250 chars)</label>
+        <textarea id="mediumDescription" name="mediumDescription" class="medium metadata-field" maxlength="250"></textarea>
+
+        <label class="metadata-field" for="shortDescription">Short (99 chars)</label>
+        <textarea id="shortDescription" name="shortDescription" class="short metadata-field" maxlength="99"></textarea>
+
+        <label class="metadata-field" for="xshortDescription">XShort (60 chars)</label>
+        <textarea id="xshortDescription" name="xshortDescription" class="xshort metadata-field" maxlength="60"></textarea>
+
+        <label class="metadata-field" for="tinyDescription">Tiny (40 chars)</label>
+        <textarea id="tinyDescription" name="tinyDescription" class="tiny metadata-field" maxlength="40"></textarea>
+
+        <label class="metadata-field" for="expectedDuration">Expected Duration</label>
+        <input id="expectedDuration" name="expectedDuration" class="duration metadata-field" type="text" autocomplete="off">
+
+      </form>
+
+      <div class="actions">
+        <button id="downloadJson" class="download-json" type="button" disabled>Download JSON</button>
+        <button type="submit" form="metadataForm">Save Form</button>
+      </div>
+
+      <section class="output-wrap" aria-live="polite">
+        <h2>Generated JSON</h2>
+        <pre id="jsonOutput">Submit the form to generate JSON.</pre>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('metadataForm');
+    const output = document.getElementById('jsonOutput');
+    const downloadJson = document.getElementById('downloadJson');
+    const tabs = document.querySelectorAll('.tab');
+    const seasonCount = document.getElementById('seasonCount');
+    const episodeCount = document.getElementById('episodeCount');
+    const relationshipFieldset = document.getElementById('relationshipFieldset');
+    const additionCounts = document.getElementById('additionCounts');
+    const extraParentFieldset = document.getElementById('extraParentFieldset');
+    const existingReferences = document.getElementById('existingReferences');
+    const referenceInputs = {
+      series: document.getElementById('existingSeriesId'),
+      season: document.getElementById('existingSeasonId'),
+      episode: document.getElementById('existingEpisodeId')
+    };
+    const referenceRows = {
+      series: document.querySelector('[data-reference-row="series"]'),
+      season: document.querySelector('[data-reference-row="season"]'),
+      episode: document.querySelector('[data-reference-row="episode"]')
+    };
+    const countRows = {
+      season: document.querySelector('[data-count-row="season"]'),
+      episode: document.querySelector('[data-count-row="episode"]')
+    };
+    const workflowProgress = document.getElementById('workflowProgress');
+    const currentWorkItemSummary = document.getElementById('currentWorkItemSummary');
+    const currentWorkItemDetail = document.getElementById('currentWorkItemDetail');
+    const previousWorkItem = document.getElementById('previousWorkItem');
+    const nextWorkItem = document.getElementById('nextWorkItem');
+    const seasonNumber = document.getElementById('seasonNumber');
+    const episodeSeasonNumber = document.getElementById('episodeSeasonNumber');
+    const metadataFields = document.querySelectorAll('.metadata-field');
+    const seasonFormFields = document.querySelectorAll('.season-form-field');
+    const episodeFormFields = document.querySelectorAll('.episode-form-field');
+    const metadataFieldNames = [
+      'title',
+      'shortTitle',
+      'sortTitle',
+      'longDescription',
+      'mediumDescription',
+      'shortDescription',
+      'xshortDescription',
+      'tinyDescription',
+      'expectedDuration',
+      'seasonNumber',
+      'episodeSeasonNumber'
+    ];
+    let workflowItems = [];
+    let currentWorkflowIndex = 0;
+    let savedFormEntries = {};
+    let generatedJsonText = '';
+
+    const relationshipRules = {
+      newSeriesSeasonEpisode: {
+        isNewSeries: true,
+        addsSeason: true,
+        addsEpisode: true,
+        seriesAction: 'create'
+      },
+      existingSeriesNewSeasonEpisode: {
+        isNewSeries: false,
+        addsSeason: true,
+        addsEpisode: true,
+        seriesAction: 'linkExisting'
+      },
+      existingSeriesSeasonNewEpisode: {
+        isNewSeries: false,
+        addsSeason: false,
+        addsEpisode: true,
+        seriesAction: 'linkExisting'
+      }
+    };
+
+    function activeTab() {
+      return document.querySelector('.tab.active');
+    }
+
+    function activeFormType() {
+      return activeTab().dataset.formType;
+    }
+
+    function numberValue(input) {
+      return Number.parseInt(input.value, 10) || 0;
+    }
+
+    function selectedRelationshipStatus() {
+      return document.querySelector('input[name="relationshipStatus"]:checked').value;
+    }
+
+    function selectedExtraParentType() {
+      return document.querySelector('input[name="extraParentType"]:checked').value;
+    }
+
+    function setInputRequirement(input, required) {
+      input.disabled = !required;
+      input.required = required;
+
+      if (!required) {
+        input.value = '';
+      }
+    }
+
+    function fieldValue(fieldName) {
+      return form.elements[fieldName].value.trim();
+    }
+
+    function selectedExistingReferences() {
+      return {
+        seriesId: referenceInputs.series.value.trim(),
+        seasonId: referenceInputs.season.value.trim(),
+        episodeId: referenceInputs.episode.value.trim()
+      };
+    }
+
+    function requiredReferenceTypes(formType, relationshipStatus, extraParentType) {
+      if (formType === 'extra') {
+        return {
+          series: extraParentType === 'series',
+          season: extraParentType === 'season',
+          episode: extraParentType === 'episode'
+        };
+      }
+
+      return {
+        series: [
+          'existingSeriesNewSeasonEpisode',
+          'existingSeriesSeasonNewEpisode'
+        ].includes(relationshipStatus),
+        season: relationshipStatus === 'existingSeriesSeasonNewEpisode',
+        episode: false
+      };
+    }
+
+    function setCountAvailability() {
+      const formType = activeFormType();
+      const relationshipStatus = selectedRelationshipStatus();
+      const extraParentType = selectedExtraParentType();
+      const relationshipRule = relationshipRules[relationshipStatus];
+      const requiredReferences = requiredReferenceTypes(formType, relationshipStatus, extraParentType);
+      const usesRelationship = formType !== 'extra';
+      const usesSeasonCount = usesRelationship && formType !== 'episode' && relationshipRule.addsSeason;
+      const usesEpisodeCount = usesRelationship && relationshipRule.addsEpisode;
+
+      relationshipFieldset.disabled = !usesRelationship;
+      relationshipFieldset.hidden = !usesRelationship;
+      additionCounts.hidden = !usesRelationship;
+      extraParentFieldset.disabled = formType !== 'extra';
+      extraParentFieldset.hidden = formType !== 'extra';
+      countRows.season.hidden = !usesRelationship;
+      countRows.episode.hidden = !usesRelationship;
+      seasonCount.disabled = !usesSeasonCount;
+      seasonCount.required = usesSeasonCount;
+      episodeCount.disabled = !usesEpisodeCount;
+      episodeCount.required = usesEpisodeCount;
+      existingReferences.hidden = !Object.values(requiredReferences).some(Boolean);
+
+      Object.entries(requiredReferences).forEach(([type, required]) => {
+        referenceRows[type].hidden = !required;
+        setInputRequirement(referenceInputs[type], required);
+      });
+
+      if (!usesSeasonCount) {
+        seasonCount.value = 0;
+      } else if (numberValue(seasonCount) < 1) {
+        seasonCount.value = 1;
+      }
+
+      if (!usesEpisodeCount) {
+        episodeCount.value = 0;
+      } else if (numberValue(episodeCount) < 1) {
+        episodeCount.value = 1;
+      }
+
+      rebuildWorkflowItems();
+    }
+
+    function buildFormPlan(formType, relationshipStatus, requestedSeasonCount, requestedEpisodeCount, extraParentType, existingReferenceValues) {
+      if (formType === 'extra') {
+        return {
+          formContext: 'extra',
+          note: `Extra forms attach to an existing ${extraParentType} and do not create series, season, or episode records.`,
+          parentType: extraParentType,
+          parentReferenceId: existingReferenceValues[`${extraParentType}Id`],
+          seriesForms: 0,
+          seasonForms: 0,
+          episodeForms: 0,
+          extraForms: 1,
+          hasMultipleSeasons: false,
+          hasMultipleEpisodes: false,
+          formsToCreate: [
+            {
+              form: 'Extra Form',
+              count: 1,
+              action: `createAndAttachToExisting${extraParentType[0].toUpperCase()}${extraParentType.slice(1)}`,
+              parentType: extraParentType,
+              parentReferenceId: existingReferenceValues[`${extraParentType}Id`]
+            }
+          ]
+        };
+      }
+
+      const relationshipRule = relationshipRules[relationshipStatus];
+      const createsSeries = formType === 'series' && relationshipRule.isNewSeries;
+      const seasonForms = relationshipRule.addsSeason && formType !== 'episode' ? requestedSeasonCount : 0;
+      const episodeForms = relationshipRule.addsEpisode
+        ? Math.max(seasonForms, 1) * requestedEpisodeCount
+        : 0;
+      const formsToCreate = [];
+
+      if (createsSeries) {
+        formsToCreate.push({ form: 'Series Form', count: 1, action: 'create' });
+      }
+
+      if (seasonForms > 0) {
+        formsToCreate.push({
+          form: 'Season Form',
+          count: seasonForms,
+          action: relationshipRule.isNewSeries ? 'createAndConnectToNewSeries' : 'createAndConnectToExistingSeries'
+        });
+      }
+
+      if (episodeForms > 0) {
+        formsToCreate.push({
+          form: 'Episode Form',
+          count: episodeForms,
+          action: seasonForms > 0 ? 'createAndConnectAcrossNewSeasonRecords' : 'createAndConnectToExistingSeason',
+          episodesPerSeason: requestedEpisodeCount,
+          seasonCount: Math.max(seasonForms, 1)
+        });
+      }
+
+
+      return {
+        formContext: formType,
+        existingReferences: existingReferenceValues,
+        seriesForms: createsSeries ? 1 : 0,
+        seasonForms,
+        episodeForms,
+        extraForms: 0,
+        hasMultipleSeasons: seasonForms > 1,
+        hasMultipleEpisodes: episodeForms > 1,
+        formsToCreate
+      };
+    }
+
+    function allWorkflowItemsCompleted() {
+      return workflowItems.length > 0 && workflowItems.every((item) => savedFormEntries[item.id]);
+    }
+
+    function updateDownloadAvailability() {
+      downloadJson.disabled = !(generatedJsonText && allWorkflowItemsCompleted());
+    }
+
+    function clearGeneratedJson() {
+      generatedJsonText = '';
+      output.textContent = 'Submit the form to generate JSON.';
+      updateDownloadAvailability();
+    }
+
+    function formTypeFromLabel(label) {
+      if (label.startsWith('Series')) {
+        return 'series';
+      }
+
+      if (label.startsWith('Season')) {
+        return 'season';
+      }
+
+      if (label.startsWith('Episode')) {
+        return 'episode';
+      }
+
+      return 'extra';
+    }
+
+    function itemLabel(item) {
+      return item.total > 1 ? `${item.form} ${item.index} of ${item.total}` : item.form;
+    }
+
+    function savedSeasonNumbers() {
+      return Object.values(savedFormEntries)
+        .filter((entry) => entry.formType === 'season')
+        .sort((first, second) => first.index - second.index)
+        .map((entry) => entry.values.seasonNumber)
+        .filter(Boolean);
+    }
+
+    function seasonNumberForEpisode(item) {
+      const seasonNumbers = savedSeasonNumbers();
+
+      if (seasonNumbers.length > 0 && item.associatedSeasonIndex) {
+        return seasonNumbers[item.associatedSeasonIndex - 1] || item.associatedSeasonNumber;
+      }
+
+      return item.associatedSeasonNumber;
+    }
+
+    function buildWorkflowItems(formPlan) {
+      return formPlan.formsToCreate.flatMap((entry) => {
+        const formType = formTypeFromLabel(entry.form);
+
+        return Array.from({ length: entry.count }, (_, offset) => {
+          const associatedSeasonIndex = formType === 'episode' && entry.episodesPerSeason
+            ? Math.floor(offset / entry.episodesPerSeason) + 1
+            : null;
+
+          return {
+            id: `${formType}-${offset + 1}`,
+            form: entry.form,
+            formType,
+            index: offset + 1,
+            total: entry.count,
+            action: entry.action,
+            parentType: entry.parentType || null,
+            parentReferenceId: entry.parentReferenceId || null,
+            associatedSeasonIndex,
+            associatedSeasonNumber: associatedSeasonIndex
+          };
+        });
+      });
+    }
+
+    function captureMetadataFields() {
+      return metadataFieldNames.reduce((values, fieldName) => {
+        values[fieldName] = form.elements[fieldName].value;
+        return values;
+      }, {});
+    }
+
+    function loadMetadataFields(values = {}) {
+      metadataFieldNames.forEach((fieldName) => {
+        form.elements[fieldName].value = values[fieldName] || '';
+      });
+    }
+
+    function currentWorkflowItem() {
+      return workflowItems[currentWorkflowIndex] || null;
+    }
+
+    function setFieldGroupState(fields, visible) {
+      fields.forEach((field) => {
+        field.hidden = !visible;
+        if ('disabled' in field) {
+          field.disabled = !visible;
+        }
+      });
+    }
+
+    function updateCurrentFormFields() {
+      const item = currentWorkflowItem();
+      const isSeasonForm = item && item.formType === 'season';
+      const isEpisodeForm = item && item.formType === 'episode';
+
+      setFieldGroupState(metadataFields, !isSeasonForm);
+      setFieldGroupState(seasonFormFields, isSeasonForm);
+      setFieldGroupState(episodeFormFields, isEpisodeForm);
+      form.elements.title.required = !isSeasonForm;
+      seasonNumber.required = isSeasonForm;
+      episodeSeasonNumber.required = isEpisodeForm;
+      if (isEpisodeForm) {
+        const linkedSeasonNumber = seasonNumberForEpisode(item);
+        if (linkedSeasonNumber) {
+          episodeSeasonNumber.value = linkedSeasonNumber;
+        }
+      }
+    }
+
+    function updateWorkflowProgress() {
+      const item = currentWorkflowItem();
+      const hasMultipleItems = workflowItems.length > 1;
+      workflowProgress.hidden = workflowItems.length === 0;
+
+      if (!item) {
+        updateCurrentFormFields();
+        return;
+      }
+
+      updateCurrentFormFields();
+      currentWorkItemSummary.textContent = `Current generated form: ${currentWorkflowIndex + 1} of ${workflowItems.length}`;
+      currentWorkItemDetail.textContent = `${itemLabel(item)} — ${item.action}. Complete the required fields before moving to the next generated form.`;
+      previousWorkItem.disabled = currentWorkflowIndex === 0;
+      nextWorkItem.disabled = !hasMultipleItems || currentWorkflowIndex === workflowItems.length - 1;
+    }
+
+    function rebuildWorkflowItems() {
+      const relationshipStatus = selectedRelationshipStatus();
+      const extraParentType = selectedExtraParentType();
+      const existingReferenceValues = selectedExistingReferences();
+      const formPlan = buildFormPlan(
+        activeFormType(),
+        relationshipStatus,
+        numberValue(seasonCount),
+        numberValue(episodeCount),
+        extraParentType,
+        existingReferenceValues
+      );
+      workflowItems = buildWorkflowItems(formPlan);
+      currentWorkflowIndex = Math.min(currentWorkflowIndex, Math.max(workflowItems.length - 1, 0));
+      savedFormEntries = {};
+      updateWorkflowProgress();
+    }
+
+    function saveCurrentWorkItem() {
+      const item = currentWorkflowItem();
+
+      if (item) {
+        savedFormEntries[item.id] = {
+          ...item,
+          values: captureMetadataFields()
+        };
+        updateDownloadAvailability();
+      }
+    }
+
+    function showWorkItem(index) {
+      saveCurrentWorkItem();
+      clearGeneratedJson();
+      currentWorkflowIndex = index;
+      const item = currentWorkflowItem();
+      loadMetadataFields(item && savedFormEntries[item.id] ? savedFormEntries[item.id].values : {});
+      updateWorkflowProgress();
+    }
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        tabs.forEach((item) => {
+          item.classList.remove('active');
+          item.removeAttribute('aria-current');
+        });
+
+        tab.classList.add('active');
+        tab.setAttribute('aria-current', 'page');
+        currentWorkflowIndex = 0;
+        savedFormEntries = {};
+        loadMetadataFields();
+        clearGeneratedJson();
+        setCountAvailability();
+      });
+    });
+
+    form.addEventListener('change', (event) => {
+      if (['relationshipStatus', 'extraParentType', 'seasonCount', 'episodeCount'].includes(event.target.name)) {
+        currentWorkflowIndex = 0;
+        savedFormEntries = {};
+        loadMetadataFields();
+        clearGeneratedJson();
+        setCountAvailability();
+      }
+    });
+
+    previousWorkItem.addEventListener('click', () => {
+      if (currentWorkflowIndex > 0) {
+        showWorkItem(currentWorkflowIndex - 1);
+      }
+    });
+
+    nextWorkItem.addEventListener('click', () => {
+      if (!form.reportValidity()) {
+        return;
+      }
+
+      if (currentWorkflowIndex < workflowItems.length - 1) {
+        showWorkItem(currentWorkflowIndex + 1);
+      }
+    });
+
+    downloadJson.addEventListener('click', () => {
+      if (downloadJson.disabled || !generatedJsonText) {
+        return;
+      }
+
+      const blob = new Blob([generatedJsonText], { type: 'application/json' });
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = 'metadata-form.json';
+      link.click();
+      URL.revokeObjectURL(downloadUrl);
+    });
+
+    setCountAvailability();
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      if (!form.reportValidity()) {
+        return;
+      }
+
+      const formData = new FormData(form);
+      const formType = activeFormType();
+      const relationshipStatus = selectedRelationshipStatus();
+      const requestedSeasonCount = numberValue(seasonCount);
+      const requestedEpisodeCount = numberValue(episodeCount);
+      const extraParentType = selectedExtraParentType();
+      const existingReferenceValues = selectedExistingReferences();
+      const relationshipRule = relationshipRules[relationshipStatus];
+      saveCurrentWorkItem();
+
+      if (!allWorkflowItemsCompleted()) {
+        clearGeneratedJson();
+        output.textContent = 'Complete all generated forms before saving JSON.';
+        return;
+      }
+
+      const currentItem = currentWorkflowItem();
+      const payload = {
+        formType: activeTab().textContent,
+        formContext: formType,
+        currentWorkItem: currentItem,
+        workflowComplete: allWorkflowItemsCompleted(),
+        generatedFormEntries: Object.values(savedFormEntries),
+        seasonNumber: fieldValue('seasonNumber'),
+        episodeSeasonNumber: fieldValue('episodeSeasonNumber'),
+        title: fieldValue('title'),
+        shortTitle: fieldValue('shortTitle'),
+        sortTitle: fieldValue('sortTitle'),
+        relationship: {
+          status: relationshipStatus,
+          extraParentType: formType === 'extra' ? extraParentType : null,
+          isNewSeries: formType === 'series' && relationshipRule.isNewSeries,
+          isNewSeason: formType !== 'extra' && formType !== 'episode' && relationshipRule.addsSeason,
+          isNewEpisode: formType !== 'extra' && relationshipRule.addsEpisode,
+          requestedSeasonCount,
+          requestedEpisodeCount,
+          hasMultipleSeasons: requestedSeasonCount > 1,
+          hasMultipleEpisodes: requestedEpisodeCount > 1
+        },
+        existingReferences: existingReferenceValues,
+        extraParent: formType === 'extra' ? {
+          parentType: extraParentType,
+          parentReferenceId: existingReferenceValues[`${extraParentType}Id`],
+          isChildOfExistingSeries: extraParentType === 'series',
+          isChildOfExistingSeason: extraParentType === 'season',
+          isChildOfExistingEpisode: extraParentType === 'episode'
+        } : null,
+        formPlan: buildFormPlan(formType, relationshipStatus, requestedSeasonCount, requestedEpisodeCount, extraParentType, existingReferenceValues),
+        descriptions: {
+          long: fieldValue('longDescription'),
+          medium: fieldValue('mediumDescription'),
+          short: fieldValue('shortDescription'),
+          xshort: fieldValue('xshortDescription'),
+          tiny: fieldValue('tinyDescription')
+        },
+        expectedDuration: fieldValue('expectedDuration')
+      };
+
+      generatedJsonText = JSON.stringify(payload, null, 2);
+      output.textContent = generatedJsonText;
+      updateDownloadAvailability();
+    });
+  </script>
+</body>
+</html>
