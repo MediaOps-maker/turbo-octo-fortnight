@@ -410,32 +410,38 @@
           <small class="workflow-note">The next generated form becomes available after the current required fields are complete.</small>
         </fieldset>
 
-        <label for="title">Title</label>
-        <input id="title" name="title" class="single-line" type="text" autocomplete="off" autofocus required>
+        <label class="season-form-field" for="seasonNumber" hidden>Season Number</label>
+        <input id="seasonNumber" name="seasonNumber" class="single-line season-form-field" type="number" min="1" step="1" inputmode="numeric" disabled hidden>
 
-        <label for="shortTitle">Short Title (25 chars)</label>
-        <input id="shortTitle" name="shortTitle" class="single-line" type="text" maxlength="25" autocomplete="off">
+        <label class="episode-form-field" for="episodeSeasonNumber" hidden>Episode Season Number</label>
+        <input id="episodeSeasonNumber" name="episodeSeasonNumber" class="single-line episode-form-field" type="number" min="1" step="1" inputmode="numeric" disabled hidden>
 
-        <label for="sortTitle">Sort Title</label>
-        <input id="sortTitle" name="sortTitle" class="single-line" type="text" autocomplete="off">
+        <label class="metadata-field" for="title">Title</label>
+        <input id="title" name="title" class="single-line metadata-field" type="text" autocomplete="off" autofocus required>
 
-        <label for="longDescription">Long (1000 chars)</label>
-        <textarea id="longDescription" name="longDescription" class="long" maxlength="1000"></textarea>
+        <label class="metadata-field" for="shortTitle">Short Title (25 chars)</label>
+        <input id="shortTitle" name="shortTitle" class="single-line metadata-field" type="text" maxlength="25" autocomplete="off">
 
-        <label for="mediumDescription">Medium (250 chars)</label>
-        <textarea id="mediumDescription" name="mediumDescription" class="medium" maxlength="250"></textarea>
+        <label class="metadata-field" for="sortTitle">Sort Title</label>
+        <input id="sortTitle" name="sortTitle" class="single-line metadata-field" type="text" autocomplete="off">
 
-        <label for="shortDescription">Short (99 chars)</label>
-        <textarea id="shortDescription" name="shortDescription" class="short" maxlength="99"></textarea>
+        <label class="metadata-field" for="longDescription">Long (1000 chars)</label>
+        <textarea id="longDescription" name="longDescription" class="long metadata-field" maxlength="1000"></textarea>
 
-        <label for="xshortDescription">XShort (60 chars)</label>
-        <textarea id="xshortDescription" name="xshortDescription" class="xshort" maxlength="60"></textarea>
+        <label class="metadata-field" for="mediumDescription">Medium (250 chars)</label>
+        <textarea id="mediumDescription" name="mediumDescription" class="medium metadata-field" maxlength="250"></textarea>
 
-        <label for="tinyDescription">Tiny (40 chars)</label>
-        <textarea id="tinyDescription" name="tinyDescription" class="tiny" maxlength="40"></textarea>
+        <label class="metadata-field" for="shortDescription">Short (99 chars)</label>
+        <textarea id="shortDescription" name="shortDescription" class="short metadata-field" maxlength="99"></textarea>
 
-        <label for="expectedDuration">Expected Duration</label>
-        <input id="expectedDuration" name="expectedDuration" class="duration" type="text" autocomplete="off">
+        <label class="metadata-field" for="xshortDescription">XShort (60 chars)</label>
+        <textarea id="xshortDescription" name="xshortDescription" class="xshort metadata-field" maxlength="60"></textarea>
+
+        <label class="metadata-field" for="tinyDescription">Tiny (40 chars)</label>
+        <textarea id="tinyDescription" name="tinyDescription" class="tiny metadata-field" maxlength="40"></textarea>
+
+        <label class="metadata-field" for="expectedDuration">Expected Duration</label>
+        <input id="expectedDuration" name="expectedDuration" class="duration metadata-field" type="text" autocomplete="off">
 
       </form>
 
@@ -481,6 +487,11 @@
     const currentWorkItemDetail = document.getElementById('currentWorkItemDetail');
     const previousWorkItem = document.getElementById('previousWorkItem');
     const nextWorkItem = document.getElementById('nextWorkItem');
+    const seasonNumber = document.getElementById('seasonNumber');
+    const episodeSeasonNumber = document.getElementById('episodeSeasonNumber');
+    const metadataFields = document.querySelectorAll('.metadata-field');
+    const seasonFormFields = document.querySelectorAll('.season-form-field');
+    const episodeFormFields = document.querySelectorAll('.episode-form-field');
     const metadataFieldNames = [
       'title',
       'shortTitle',
@@ -490,7 +501,9 @@
       'shortDescription',
       'xshortDescription',
       'tinyDescription',
-      'expectedDuration'
+      'expectedDuration',
+      'seasonNumber',
+      'episodeSeasonNumber'
     ];
     let workflowItems = [];
     let currentWorkflowIndex = 0;
@@ -551,6 +564,10 @@
       if (!required) {
         input.value = '';
       }
+    }
+
+    function fieldValue(fieldName) {
+      return form.elements[fieldName].value.trim();
     }
 
     function selectedExistingReferences() {
@@ -756,15 +773,39 @@
       return workflowItems[currentWorkflowIndex] || null;
     }
 
+    function setFieldGroupState(fields, visible) {
+      fields.forEach((field) => {
+        field.hidden = !visible;
+        if ('disabled' in field) {
+          field.disabled = !visible;
+        }
+      });
+    }
+
+    function updateCurrentFormFields() {
+      const item = currentWorkflowItem();
+      const isSeasonForm = item && item.formType === 'season';
+      const isEpisodeForm = item && item.formType === 'episode';
+
+      setFieldGroupState(metadataFields, !isSeasonForm);
+      setFieldGroupState(seasonFormFields, isSeasonForm);
+      setFieldGroupState(episodeFormFields, isEpisodeForm);
+      form.elements.title.required = !isSeasonForm;
+      seasonNumber.required = isSeasonForm;
+      episodeSeasonNumber.required = isEpisodeForm;
+    }
+
     function updateWorkflowProgress() {
       const item = currentWorkflowItem();
       const hasMultipleItems = workflowItems.length > 1;
       workflowProgress.hidden = workflowItems.length === 0;
 
       if (!item) {
+        updateCurrentFormFields();
         return;
       }
 
+      updateCurrentFormFields();
       currentWorkItemSummary.textContent = `Current generated form: ${currentWorkflowIndex + 1} of ${workflowItems.length}`;
       currentWorkItemDetail.textContent = `${itemLabel(item)} — ${item.action}. Complete the required fields before moving to the next generated form.`;
       previousWorkItem.disabled = currentWorkflowIndex === 0;
@@ -885,6 +926,13 @@
       const existingReferenceValues = selectedExistingReferences();
       const relationshipRule = relationshipRules[relationshipStatus];
       saveCurrentWorkItem();
+
+      if (!allWorkflowItemsCompleted()) {
+        clearGeneratedJson();
+        output.textContent = 'Complete all generated forms before saving JSON.';
+        return;
+      }
+
       const currentItem = currentWorkflowItem();
       const payload = {
         formType: activeTab().textContent,
@@ -892,9 +940,11 @@
         currentWorkItem: currentItem,
         workflowComplete: allWorkflowItemsCompleted(),
         generatedFormEntries: Object.values(savedFormEntries),
-        title: formData.get('title').trim(),
-        shortTitle: formData.get('shortTitle').trim(),
-        sortTitle: formData.get('sortTitle').trim(),
+        seasonNumber: fieldValue('seasonNumber'),
+        episodeSeasonNumber: fieldValue('episodeSeasonNumber'),
+        title: fieldValue('title'),
+        shortTitle: fieldValue('shortTitle'),
+        sortTitle: fieldValue('sortTitle'),
         relationship: {
           status: relationshipStatus,
           extraParentType: formType === 'extra' ? extraParentType : null,
@@ -916,13 +966,13 @@
         } : null,
         formPlan: buildFormPlan(formType, relationshipStatus, requestedSeasonCount, requestedEpisodeCount, extraParentType, existingReferenceValues),
         descriptions: {
-          long: formData.get('longDescription').trim(),
-          medium: formData.get('mediumDescription').trim(),
-          short: formData.get('shortDescription').trim(),
-          xshort: formData.get('xshortDescription').trim(),
-          tiny: formData.get('tinyDescription').trim()
+          long: fieldValue('longDescription'),
+          medium: fieldValue('mediumDescription'),
+          short: fieldValue('shortDescription'),
+          xshort: fieldValue('xshortDescription'),
+          tiny: fieldValue('tinyDescription')
         },
-        expectedDuration: formData.get('expectedDuration').trim()
+        expectedDuration: fieldValue('expectedDuration')
       };
 
       generatedJsonText = JSON.stringify(payload, null, 2);
