@@ -163,6 +163,7 @@
       color: #333333;
     }
 
+    .workflow-row,
     .count-row {
       display: grid;
       grid-template-columns: 155px 80px 1fr;
@@ -171,17 +172,20 @@
       margin: 5px 0;
     }
 
+    .workflow-row label,
     .count-row label {
       min-height: auto;
       padding: 0;
       white-space: normal;
     }
 
+    .workflow-row input,
     .count-row input {
       border-right: 1px solid var(--border);
       height: 26px;
     }
 
+    .workflow-row input:disabled,
     .count-row input:disabled {
       background: #eeeeee;
       color: #777777;
@@ -259,6 +263,7 @@
         margin-left: 0;
       }
 
+      .workflow-row,
       .count-row {
         grid-template-columns: 1fr;
       }
@@ -282,7 +287,7 @@
     <section class="form-panel">
       <form id="metadataForm" class="metadata-form">
         <label for="title">Title</label>
-        <input id="title" name="title" class="single-line" type="text" autocomplete="off" autofocus>
+        <input id="title" name="title" class="single-line" type="text" autocomplete="off" autofocus required>
 
         <label for="shortTitle">Short Title (25 chars)</label>
         <input id="shortTitle" name="shortTitle" class="single-line" type="text" maxlength="25" autocomplete="off">
@@ -360,6 +365,26 @@
           </label>
           <small class="workflow-note">Choose the existing parent record that this Extra should attach to.</small>
         </fieldset>
+
+        <fieldset class="workflow-group" id="existingReferences" hidden>
+          <legend>Required Existing References</legend>
+          <div class="workflow-row" data-reference-row="series">
+            <label for="existingSeriesId">Existing Series ID</label>
+            <input id="existingSeriesId" name="existingSeriesId" type="text" autocomplete="off" disabled>
+            <span class="field-hint">Required when adding to an existing series or attaching an Extra to a series.</span>
+          </div>
+          <div class="workflow-row" data-reference-row="season">
+            <label for="existingSeasonId">Existing Season ID</label>
+            <input id="existingSeasonId" name="existingSeasonId" type="text" autocomplete="off" disabled>
+            <span class="field-hint">Required when adding to an existing season or attaching an Extra to a season.</span>
+          </div>
+          <div class="workflow-row" data-reference-row="episode">
+            <label for="existingEpisodeId">Existing Episode ID</label>
+            <input id="existingEpisodeId" name="existingEpisodeId" type="text" autocomplete="off" disabled>
+            <span class="field-hint">Required when attaching an Extra to an existing episode.</span>
+          </div>
+          <small class="workflow-note">Only references required by the active form and relationship choice are enabled and required.</small>
+        </fieldset>
       </form>
 
       <div class="actions">
@@ -382,6 +407,17 @@
     const relationshipFieldset = document.getElementById('relationshipFieldset');
     const additionCounts = document.getElementById('additionCounts');
     const extraParentFieldset = document.getElementById('extraParentFieldset');
+    const existingReferences = document.getElementById('existingReferences');
+    const referenceInputs = {
+      series: document.getElementById('existingSeriesId'),
+      season: document.getElementById('existingSeasonId'),
+      episode: document.getElementById('existingEpisodeId')
+    };
+    const referenceRows = {
+      series: document.querySelector('[data-reference-row="series"]'),
+      season: document.querySelector('[data-reference-row="season"]'),
+      episode: document.querySelector('[data-reference-row="episode"]')
+    };
     const countRows = {
       season: document.querySelector('[data-count-row="season"]'),
       episode: document.querySelector('[data-count-row="episode"]')
@@ -434,10 +470,49 @@
       return document.querySelector('input[name="extraParentType"]:checked').value;
     }
 
+    function setInputRequirement(input, required) {
+      input.disabled = !required;
+      input.required = required;
+
+      if (!required) {
+        input.value = '';
+      }
+    }
+
+    function selectedExistingReferences() {
+      return {
+        seriesId: referenceInputs.series.value.trim(),
+        seasonId: referenceInputs.season.value.trim(),
+        episodeId: referenceInputs.episode.value.trim()
+      };
+    }
+
+    function requiredReferenceTypes(formType, relationshipStatus, extraParentType) {
+      if (formType === 'extra') {
+        return {
+          series: extraParentType === 'series',
+          season: extraParentType === 'season',
+          episode: extraParentType === 'episode'
+        };
+      }
+
+      return {
+        series: [
+          'existingSeriesNewSeasonEpisode',
+          'existingSeriesSeasonNewEpisode',
+          'existingSeriesNewSeasonOnly'
+        ].includes(relationshipStatus),
+        season: relationshipStatus === 'existingSeriesSeasonNewEpisode',
+        episode: false
+      };
+    }
+
     function setCountAvailability() {
       const formType = activeFormType();
       const relationshipStatus = selectedRelationshipStatus();
+      const extraParentType = selectedExtraParentType();
       const relationshipRule = relationshipRules[relationshipStatus];
+      const requiredReferences = requiredReferenceTypes(formType, relationshipStatus, extraParentType);
       const usesRelationship = formType !== 'extra';
       const usesSeasonCount = usesRelationship && formType !== 'episode' && relationshipRule.addsSeason;
       const usesEpisodeCount = usesRelationship && relationshipRule.addsEpisode;
@@ -450,7 +525,15 @@
       countRows.season.hidden = !usesRelationship;
       countRows.episode.hidden = !usesRelationship;
       seasonCount.disabled = !usesSeasonCount;
+      seasonCount.required = usesSeasonCount;
       episodeCount.disabled = !usesEpisodeCount;
+      episodeCount.required = usesEpisodeCount;
+      existingReferences.hidden = !Object.values(requiredReferences).some(Boolean);
+
+      Object.entries(requiredReferences).forEach(([type, required]) => {
+        referenceRows[type].hidden = !required;
+        setInputRequirement(referenceInputs[type], required);
+      });
 
       if (!usesSeasonCount) {
         seasonCount.value = 0;
@@ -465,12 +548,13 @@
       }
     }
 
-    function buildFormPlan(formType, relationshipStatus, requestedSeasonCount, requestedEpisodeCount, extraParentType) {
+    function buildFormPlan(formType, relationshipStatus, requestedSeasonCount, requestedEpisodeCount, extraParentType, existingReferenceValues) {
       if (formType === 'extra') {
         return {
           formContext: 'extra',
           note: `Extra forms attach to an existing ${extraParentType} and do not create series, season, or episode records.`,
           parentType: extraParentType,
+          parentReferenceId: existingReferenceValues[`${extraParentType}Id`],
           seriesForms: 0,
           seasonForms: 0,
           episodeForms: 0,
@@ -482,7 +566,8 @@
               form: 'Extra Form',
               count: 1,
               action: `createAndAttachToExisting${extraParentType[0].toUpperCase()}${extraParentType.slice(1)}`,
-              parentType: extraParentType
+              parentType: extraParentType,
+              parentReferenceId: existingReferenceValues[`${extraParentType}Id`]
             }
           ]
         };
@@ -516,6 +601,7 @@
 
       return {
         formContext: formType,
+        existingReferences: existingReferenceValues,
         seriesForms: createsSeries ? 1 : 0,
         seasonForms,
         episodeForms,
@@ -540,7 +626,7 @@
     });
 
     form.addEventListener('change', (event) => {
-      if (event.target.name === 'relationshipStatus') {
+      if (['relationshipStatus', 'extraParentType'].includes(event.target.name)) {
         setCountAvailability();
       }
     });
@@ -550,12 +636,17 @@
     form.addEventListener('submit', (event) => {
       event.preventDefault();
 
+      if (!form.reportValidity()) {
+        return;
+      }
+
       const formData = new FormData(form);
       const formType = activeFormType();
       const relationshipStatus = selectedRelationshipStatus();
       const requestedSeasonCount = numberValue(seasonCount);
       const requestedEpisodeCount = numberValue(episodeCount);
       const extraParentType = selectedExtraParentType();
+      const existingReferenceValues = selectedExistingReferences();
       const relationshipRule = relationshipRules[relationshipStatus];
       const payload = {
         formType: activeTab().textContent,
@@ -574,13 +665,15 @@
           hasMultipleSeasons: requestedSeasonCount > 1,
           hasMultipleEpisodes: requestedEpisodeCount > 1
         },
+        existingReferences: existingReferenceValues,
         extraParent: formType === 'extra' ? {
           parentType: extraParentType,
+          parentReferenceId: existingReferenceValues[`${extraParentType}Id`],
           isChildOfExistingSeries: extraParentType === 'series',
           isChildOfExistingSeason: extraParentType === 'season',
           isChildOfExistingEpisode: extraParentType === 'episode'
         } : null,
-        formPlan: buildFormPlan(formType, relationshipStatus, requestedSeasonCount, requestedEpisodeCount, extraParentType),
+        formPlan: buildFormPlan(formType, relationshipStatus, requestedSeasonCount, requestedEpisodeCount, extraParentType, existingReferenceValues),
         descriptions: {
           long: formData.get('longDescription').trim(),
           medium: formData.get('mediumDescription').trim(),
