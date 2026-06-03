@@ -195,6 +195,37 @@
       color: #333333;
     }
 
+    .progress-summary {
+      margin: 0 0 4px;
+      font-weight: 700;
+    }
+
+    .progress-detail {
+      margin: 0 0 8px;
+    }
+
+    .progress-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .progress-actions button {
+      min-width: 65px;
+      height: 24px;
+      border: 1px solid #c8c8c8;
+      border-radius: 4px;
+      background: linear-gradient(#ffffff, #f4f4f4);
+      color: #000000;
+      cursor: pointer;
+      font: inherit;
+      padding: 2px 10px;
+    }
+
+    .progress-actions button:disabled {
+      color: #777777;
+      cursor: default;
+    }
+
     .actions {
       display: flex;
       justify-content: flex-end;
@@ -286,32 +317,6 @@
 
     <section class="form-panel">
       <form id="metadataForm" class="metadata-form">
-        <label for="title">Title</label>
-        <input id="title" name="title" class="single-line" type="text" autocomplete="off" autofocus required>
-
-        <label for="shortTitle">Short Title (25 chars)</label>
-        <input id="shortTitle" name="shortTitle" class="single-line" type="text" maxlength="25" autocomplete="off">
-
-        <label for="sortTitle">Sort Title</label>
-        <input id="sortTitle" name="sortTitle" class="single-line" type="text" autocomplete="off">
-
-        <label for="longDescription">Long (1000 chars)</label>
-        <textarea id="longDescription" name="longDescription" class="long" maxlength="1000"></textarea>
-
-        <label for="mediumDescription">Medium (250 chars)</label>
-        <textarea id="mediumDescription" name="mediumDescription" class="medium" maxlength="250"></textarea>
-
-        <label for="shortDescription">Short (99 chars)</label>
-        <textarea id="shortDescription" name="shortDescription" class="short" maxlength="99"></textarea>
-
-        <label for="xshortDescription">XShort (60 chars)</label>
-        <textarea id="xshortDescription" name="xshortDescription" class="xshort" maxlength="60"></textarea>
-
-        <label for="tinyDescription">Tiny (40 chars)</label>
-        <textarea id="tinyDescription" name="tinyDescription" class="tiny" maxlength="40"></textarea>
-
-        <label for="expectedDuration">Expected Duration</label>
-        <input id="expectedDuration" name="expectedDuration" class="duration" type="text" autocomplete="off">
 
         <fieldset class="workflow-group" id="relationshipFieldset">
           <legend>Series / Season / Episode Relationship</legend>
@@ -385,6 +390,45 @@
           </div>
           <small class="workflow-note">Only references required by the active form and relationship choice are enabled and required.</small>
         </fieldset>
+
+        <fieldset class="workflow-group" id="workflowProgress" hidden>
+          <legend>Current Form Progress</legend>
+          <p class="progress-summary" id="currentWorkItemSummary">Current form: 1 of 1</p>
+          <p class="progress-detail" id="currentWorkItemDetail">Fill out this form, then continue to the next generated form.</p>
+          <div class="progress-actions">
+            <button id="previousWorkItem" type="button">Previous</button>
+            <button id="nextWorkItem" type="button">Next</button>
+          </div>
+          <small class="workflow-note">The next generated form becomes available after the current required fields are complete.</small>
+        </fieldset>
+
+        <label for="title">Title</label>
+        <input id="title" name="title" class="single-line" type="text" autocomplete="off" autofocus required>
+
+        <label for="shortTitle">Short Title (25 chars)</label>
+        <input id="shortTitle" name="shortTitle" class="single-line" type="text" maxlength="25" autocomplete="off">
+
+        <label for="sortTitle">Sort Title</label>
+        <input id="sortTitle" name="sortTitle" class="single-line" type="text" autocomplete="off">
+
+        <label for="longDescription">Long (1000 chars)</label>
+        <textarea id="longDescription" name="longDescription" class="long" maxlength="1000"></textarea>
+
+        <label for="mediumDescription">Medium (250 chars)</label>
+        <textarea id="mediumDescription" name="mediumDescription" class="medium" maxlength="250"></textarea>
+
+        <label for="shortDescription">Short (99 chars)</label>
+        <textarea id="shortDescription" name="shortDescription" class="short" maxlength="99"></textarea>
+
+        <label for="xshortDescription">XShort (60 chars)</label>
+        <textarea id="xshortDescription" name="xshortDescription" class="xshort" maxlength="60"></textarea>
+
+        <label for="tinyDescription">Tiny (40 chars)</label>
+        <textarea id="tinyDescription" name="tinyDescription" class="tiny" maxlength="40"></textarea>
+
+        <label for="expectedDuration">Expected Duration</label>
+        <input id="expectedDuration" name="expectedDuration" class="duration" type="text" autocomplete="off">
+
       </form>
 
       <div class="actions">
@@ -422,6 +466,25 @@
       season: document.querySelector('[data-count-row="season"]'),
       episode: document.querySelector('[data-count-row="episode"]')
     };
+    const workflowProgress = document.getElementById('workflowProgress');
+    const currentWorkItemSummary = document.getElementById('currentWorkItemSummary');
+    const currentWorkItemDetail = document.getElementById('currentWorkItemDetail');
+    const previousWorkItem = document.getElementById('previousWorkItem');
+    const nextWorkItem = document.getElementById('nextWorkItem');
+    const metadataFieldNames = [
+      'title',
+      'shortTitle',
+      'sortTitle',
+      'longDescription',
+      'mediumDescription',
+      'shortDescription',
+      'xshortDescription',
+      'tinyDescription',
+      'expectedDuration'
+    ];
+    let workflowItems = [];
+    let currentWorkflowIndex = 0;
+    let savedFormEntries = {};
 
     const relationshipRules = {
       newSeriesSeasonEpisode: {
@@ -546,6 +609,8 @@
       } else if (numberValue(episodeCount) < 1) {
         episodeCount.value = 1;
       }
+
+      rebuildWorkflowItems();
     }
 
     function buildFormPlan(formType, relationshipStatus, requestedSeasonCount, requestedEpisodeCount, extraParentType, existingReferenceValues) {
@@ -612,6 +677,112 @@
       };
     }
 
+    function formTypeFromLabel(label) {
+      if (label.startsWith('Series')) {
+        return 'series';
+      }
+
+      if (label.startsWith('Season')) {
+        return 'season';
+      }
+
+      if (label.startsWith('Episode')) {
+        return 'episode';
+      }
+
+      return 'extra';
+    }
+
+    function itemLabel(item) {
+      return item.total > 1 ? `${item.form} ${item.index} of ${item.total}` : item.form;
+    }
+
+    function buildWorkflowItems(formPlan) {
+      return formPlan.formsToCreate.flatMap((entry) => {
+        const formType = formTypeFromLabel(entry.form);
+
+        return Array.from({ length: entry.count }, (_, offset) => ({
+          id: `${formType}-${offset + 1}`,
+          form: entry.form,
+          formType,
+          index: offset + 1,
+          total: entry.count,
+          action: entry.action,
+          parentType: entry.parentType || null,
+          parentReferenceId: entry.parentReferenceId || null
+        }));
+      });
+    }
+
+    function captureMetadataFields() {
+      return metadataFieldNames.reduce((values, fieldName) => {
+        values[fieldName] = form.elements[fieldName].value;
+        return values;
+      }, {});
+    }
+
+    function loadMetadataFields(values = {}) {
+      metadataFieldNames.forEach((fieldName) => {
+        form.elements[fieldName].value = values[fieldName] || '';
+      });
+    }
+
+    function currentWorkflowItem() {
+      return workflowItems[currentWorkflowIndex] || null;
+    }
+
+    function updateWorkflowProgress() {
+      const item = currentWorkflowItem();
+      const hasMultipleItems = workflowItems.length > 1;
+      workflowProgress.hidden = workflowItems.length === 0;
+
+      if (!item) {
+        return;
+      }
+
+      currentWorkItemSummary.textContent = `Current generated form: ${currentWorkflowIndex + 1} of ${workflowItems.length}`;
+      currentWorkItemDetail.textContent = `${itemLabel(item)} — ${item.action}. Complete the required fields before moving to the next generated form.`;
+      previousWorkItem.disabled = currentWorkflowIndex === 0;
+      nextWorkItem.disabled = !hasMultipleItems || currentWorkflowIndex === workflowItems.length - 1;
+    }
+
+    function rebuildWorkflowItems() {
+      const relationshipStatus = selectedRelationshipStatus();
+      const extraParentType = selectedExtraParentType();
+      const existingReferenceValues = selectedExistingReferences();
+      const formPlan = buildFormPlan(
+        activeFormType(),
+        relationshipStatus,
+        numberValue(seasonCount),
+        numberValue(episodeCount),
+        extraParentType,
+        existingReferenceValues
+      );
+      workflowItems = buildWorkflowItems(formPlan);
+      currentWorkflowIndex = Math.min(currentWorkflowIndex, Math.max(workflowItems.length - 1, 0));
+      savedFormEntries = {};
+      updateWorkflowProgress();
+    }
+
+    function saveCurrentWorkItem() {
+      const item = currentWorkflowItem();
+
+      if (item) {
+        savedFormEntries[item.id] = {
+          ...item,
+          values: captureMetadataFields()
+        };
+      }
+    }
+
+    function showWorkItem(index) {
+      saveCurrentWorkItem();
+      currentWorkflowIndex = index;
+      const item = currentWorkflowItem();
+      loadMetadataFields(item && savedFormEntries[item.id] ? savedFormEntries[item.id].values : {});
+      updateWorkflowProgress();
+    }
+
     tabs.forEach((tab) => {
       tab.addEventListener('click', () => {
         tabs.forEach((item) => {
@@ -621,13 +792,35 @@
 
         tab.classList.add('active');
         tab.setAttribute('aria-current', 'page');
+        currentWorkflowIndex = 0;
+        savedFormEntries = {};
+        loadMetadataFields();
         setCountAvailability();
       });
     });
 
     form.addEventListener('change', (event) => {
-      if (['relationshipStatus', 'extraParentType'].includes(event.target.name)) {
+      if (['relationshipStatus', 'extraParentType', 'seasonCount', 'episodeCount'].includes(event.target.name)) {
+        currentWorkflowIndex = 0;
+        savedFormEntries = {};
+        loadMetadataFields();
         setCountAvailability();
+      }
+    });
+
+    previousWorkItem.addEventListener('click', () => {
+      if (currentWorkflowIndex > 0) {
+        showWorkItem(currentWorkflowIndex - 1);
+      }
+    });
+
+    nextWorkItem.addEventListener('click', () => {
+      if (!form.reportValidity()) {
+        return;
+      }
+
+      if (currentWorkflowIndex < workflowItems.length - 1) {
+        showWorkItem(currentWorkflowIndex + 1);
       }
     });
 
@@ -648,9 +841,13 @@
       const extraParentType = selectedExtraParentType();
       const existingReferenceValues = selectedExistingReferences();
       const relationshipRule = relationshipRules[relationshipStatus];
+      saveCurrentWorkItem();
+      const currentItem = currentWorkflowItem();
       const payload = {
         formType: activeTab().textContent,
         formContext: formType,
+        currentWorkItem: currentItem,
+        generatedFormEntries: Object.values(savedFormEntries),
         title: formData.get('title').trim(),
         shortTitle: formData.get('shortTitle').trim(),
         sortTitle: formData.get('sortTitle').trim(),
