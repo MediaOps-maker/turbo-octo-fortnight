@@ -346,14 +346,6 @@
             <input id="relationshipExistingSeriesSeasonNewEpisode" name="relationshipStatus" type="radio" value="existingSeriesSeasonNewEpisode">
             Existing series and season need a new episode
           </label>
-          <label class="workflow-option" for="relationshipExistingSeriesNewSeasonOnly">
-            <input id="relationshipExistingSeriesNewSeasonOnly" name="relationshipStatus" type="radio" value="existingSeriesNewSeasonOnly">
-            Existing series needs a new season only
-          </label>
-          <label class="workflow-option" for="relationshipExistingEpisode">
-            <input id="relationshipExistingEpisode" name="relationshipStatus" type="radio" value="existingEpisode">
-            Existing episode
-          </label>
           <small class="workflow-note">Choose the option that shows whether the entered series, season, and episode are all connected new records or additions to existing records.</small>
         </fieldset>
 
@@ -538,19 +530,6 @@
         addsSeason: false,
         addsEpisode: true,
         seriesAction: 'linkExisting'
-      },
-      existingSeriesNewSeasonOnly: {
-        isNewSeries: false,
-        addsSeason: true,
-        addsEpisode: false,
-        seriesAction: 'linkExisting'
-      },
-      existingEpisode: {
-        isNewSeries: false,
-        addsSeason: false,
-        addsEpisode: false,
-        isExistingEpisode: true,
-        seriesAction: 'linkExisting'
       }
     };
 
@@ -607,11 +586,10 @@
       return {
         series: [
           'existingSeriesNewSeasonEpisode',
-          'existingSeriesSeasonNewEpisode',
-          'existingSeriesNewSeasonOnly'
+          'existingSeriesSeasonNewEpisode'
         ].includes(relationshipStatus),
         season: relationshipStatus === 'existingSeriesSeasonNewEpisode',
-        episode: relationshipStatus === 'existingEpisode'
+        episode: false
       };
     }
 
@@ -713,14 +691,6 @@
         });
       }
 
-      if (relationshipRule.isExistingEpisode) {
-        formsToCreate.push({
-          form: 'Episode Form',
-          count: 1,
-          action: 'linkExistingEpisode',
-          parentReferenceId: existingReferenceValues.episodeId
-        });
-      }
 
       return {
         formContext: formType,
@@ -849,8 +819,6 @@
       form.elements.title.required = !isSeasonForm;
       seasonNumber.required = isSeasonForm;
       episodeSeasonNumber.required = isEpisodeForm;
-      episodeSeasonNumber.max = Math.max(numberValue(seasonCount), 1);
-
       if (isEpisodeForm) {
         const linkedSeasonNumber = seasonNumberForEpisode(item);
         if (linkedSeasonNumber) {
@@ -1015,7 +983,6 @@
           isNewSeries: formType === 'series' && relationshipRule.isNewSeries,
           isNewSeason: formType !== 'extra' && formType !== 'episode' && relationshipRule.addsSeason,
           isNewEpisode: formType !== 'extra' && relationshipRule.addsEpisode,
-          isExistingEpisode: relationshipStatus === 'existingEpisode',
           requestedSeasonCount,
           requestedEpisodeCount,
           hasMultipleSeasons: requestedSeasonCount > 1,

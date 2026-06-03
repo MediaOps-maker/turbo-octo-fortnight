@@ -21,7 +21,7 @@ The page lets a user enter metadata fields for the selected form type:
 - Sort Title
 - Long, Medium, Short, XShort, and Tiny descriptions with matching character limits
 - Expected Duration
-- Series / Season / Episode relationship status, which indicates whether the submitted records are a fully connected new series/season/episode set, an addition to an existing series/season, or an existing episode
+- Series / Season / Episode relationship status, which indicates whether the submitted records are a fully connected new series/season/episode set or an addition to an existing series/season
 - Counts for how many seasons and episodes need to be added, including support for multiple new season and/or episode forms
 - Extra parent selection so an Extra can be marked as a child of an existing series, season, or episode
 - Required existing reference IDs that dynamically appear for the selected relationship, such as existing series, season, or episode IDs
