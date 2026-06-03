@@ -769,23 +769,46 @@
       return item.total > 1 ? `${item.form} ${item.index} of ${item.total}` : item.form;
     }
 
+    function savedSeasonNumbers() {
+      return Object.values(savedFormEntries)
+        .filter((entry) => entry.formType === 'season')
+        .sort((first, second) => first.index - second.index)
+        .map((entry) => entry.values.seasonNumber)
+        .filter(Boolean);
+    }
+
+    function seasonNumberForEpisode(item) {
+      const seasonNumbers = savedSeasonNumbers();
+
+      if (seasonNumbers.length > 0 && item.associatedSeasonIndex) {
+        return seasonNumbers[item.associatedSeasonIndex - 1] || item.associatedSeasonNumber;
+      }
+
+      return item.associatedSeasonNumber;
+    }
+
     function buildWorkflowItems(formPlan) {
       return formPlan.formsToCreate.flatMap((entry) => {
         const formType = formTypeFromLabel(entry.form);
 
-        return Array.from({ length: entry.count }, (_, offset) => ({
-          id: `${formType}-${offset + 1}`,
-          form: entry.form,
-          formType,
-          index: offset + 1,
-          total: entry.count,
-          action: entry.action,
-          parentType: entry.parentType || null,
-          parentReferenceId: entry.parentReferenceId || null,
-          associatedSeasonNumber: formType === 'episode' && entry.episodesPerSeason
+        return Array.from({ length: entry.count }, (_, offset) => {
+          const associatedSeasonIndex = formType === 'episode' && entry.episodesPerSeason
             ? Math.floor(offset / entry.episodesPerSeason) + 1
-            : null
-        }));
+            : null;
+
+          return {
+            id: `${formType}-${offset + 1}`,
+            form: entry.form,
+            formType,
+            index: offset + 1,
+            total: entry.count,
+            action: entry.action,
+            parentType: entry.parentType || null,
+            parentReferenceId: entry.parentReferenceId || null,
+            associatedSeasonIndex,
+            associatedSeasonNumber: associatedSeasonIndex
+          };
+        });
       });
     }
 
@@ -828,8 +851,11 @@
       episodeSeasonNumber.required = isEpisodeForm;
       episodeSeasonNumber.max = Math.max(numberValue(seasonCount), 1);
 
-      if (isEpisodeForm && item.associatedSeasonNumber && !episodeSeasonNumber.value) {
-        episodeSeasonNumber.value = item.associatedSeasonNumber;
+      if (isEpisodeForm) {
+        const linkedSeasonNumber = seasonNumberForEpisode(item);
+        if (linkedSeasonNumber) {
+          episodeSeasonNumber.value = linkedSeasonNumber;
+        }
       }
     }
 
