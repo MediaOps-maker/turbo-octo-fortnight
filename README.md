@@ -1,9 +1,10 @@
 # Product Metadata Update Form
 
-This repository contains a small Node.js web application for updating records in `Products - Green-lit (Metadata CSV) (7)_002.csv` by itemcode.
+This repository contains a small Node.js web application with a BYUtv-inspired web form for updating records in `Products - Green-lit (Metadata CSV) (7)_002.csv` by itemcode.
 
 ## What it does
 
+- Provides a BYUtv-inspired interface with navy/blue gradients, workflow status pills, and polished metadata form cards.
 - Looks up products from the CSV by the `Item Code` column.
 - Renders only the approved editable metadata fields in a webform: `Press Title`, `Press Title - Sort`, `Press Title - Short`, `Long Description`, `Medium Description`, `Short Description`, `Xtra Short Description`, and `Tiny Description`.
 - Accepts user edits, submitter information, and notes.
