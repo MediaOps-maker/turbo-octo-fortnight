@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "products-green-lit.metadata.schema",
+  "title": "Products Green-lit Metadata Update",
+  "type": "object",
+  "required": ["$schema", "itemCode", "submittedAt", "originalMetadata", "updatedMetadata"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "const": "products-green-lit.metadata.schema" },
+    "itemCode": { "type": "string", "minLength": 1 },
+    "submittedAt": { "type": "string", "format": "date-time" },
+    "submittedBy": { "type": "string" },
+    "notes": { "type": "string" },
+    "originalMetadata": { "$ref": "#/$defs/metadataFields" },
+    "updatedMetadata": { "$ref": "#/$defs/metadataFields" }
+  },
+  "$defs": {
+    "metadataFields": {
+      "type": "object",
+      "required": [
+        "Press Title",
+        "Press Title - Sort",
+        "Press Title - Short",
+        "Long Description",
+        "Medium Description",
+        "Short Description",
+        "Xtra Short Description",
+        "Tiny Description"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "Press Title": { "type": "string" },
+        "Press Title - Sort": { "type": "string" },
+        "Press Title - Short": { "type": "string" },
+        "Long Description": { "type": "string" },
+        "Medium Description": { "type": "string" },
+        "Short Description": { "type": "string" },
+        "Xtra Short Description": { "type": "string" },
+        "Tiny Description": { "type": "string" }
+      }
+    }
+  }
+}

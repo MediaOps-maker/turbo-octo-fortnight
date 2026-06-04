@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "products-green-lit.parent-child.schema",
+  "title": "Products Green-lit Parent Child Reference",
+  "type": "object",
+  "required": ["$schema", "itemCode", "submittedAt", "hierarchy"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "const": "products-green-lit.parent-child.schema" },
+    "itemCode": { "type": "string", "minLength": 1 },
+    "submittedAt": { "type": "string", "format": "date-time" },
+    "hierarchy": {
+      "type": "object",
+      "required": ["Series", "Season", "S#", "Episode", "Episode Number"],
+      "additionalProperties": false,
+      "properties": {
+        "Series": { "type": "string" },
+        "Season": { "type": "string" },
+        "S#": { "type": "string" },
+        "Episode": { "type": "string" },
+        "Episode Number": { "type": "string" }
+      }
+    }
+  }
+}
