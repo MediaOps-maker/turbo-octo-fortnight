@@ -28,7 +28,7 @@
         margin-bottom: 1.5rem;
         padding: 1.5rem;
       }
-      h1, h2 {
+      h1, h2, h3 {
         margin-top: 0;
       }
       label {
@@ -45,6 +45,9 @@
         border: 1px solid #b7c2d7;
         padding: 0.75rem;
         width: 100%;
+      }
+      input[type="file"] {
+        background: #f8faff;
       }
       textarea {
         min-height: 6rem;
@@ -65,7 +68,13 @@
         background: #93a0b8;
         cursor: not-allowed;
       }
+      code {
+        background: #eef3ff;
+        border-radius: 6px;
+        padding: 0.1rem 0.3rem;
+      }
       .lookup {
+        align-items: end;
         display: grid;
         gap: 1rem;
         grid-template-columns: 1fr auto;
@@ -105,6 +114,10 @@
         background: #eef3ff;
         color: #28437d;
       }
+      .small {
+        color: #59657b;
+        font-size: 0.92rem;
+      }
       .hidden {
         display: none;
       }
@@ -112,8 +125,10 @@
         body { background: #101521; color: #eef3ff; }
         .panel { background: #171f30; border-color: #2c3852; }
         input, textarea { background: #101521; border-color: #506080; color: #eef3ff; }
+        input[type="file"], code, .current-value { background: #101a2e; }
         .field-card { border-color: #2c3852; }
-        .current-value { background: #101a2e; color: #cbd6ee; }
+        .current-value { color: #cbd6ee; }
+        .small { color: #aab6ce; }
       }
     </style>
   </head>
@@ -121,7 +136,7 @@
     <main>
       <section class="panel">
         <h1>Product Metadata Update Form</h1>
-        <p>Look up a record by <strong>itemcode</strong>, edit the approved CSV-backed metadata fields, then submit once. The app updates the CSV, records the itemcode as locked, and downloads a JSON receipt that includes the metadata and parent-child schema documents.</p>
+        <p>Look up a record by <strong>itemcode</strong>, edit the approved CSV-backed metadata fields, then submit once. If the Node server is running, the app updates the CSV on the server. If the backend cannot be reached, load the CSV below and the app will create downloadable updated CSV, lock-record, and JSON receipt files.</p>
         <form id="lookup-form" class="lookup">
           <div>
             <label for="itemCode">Itemcode</label>
@@ -130,6 +145,22 @@
           <button type="submit">Load product</button>
         </form>
         <div id="lookup-message" class="message hidden"></div>
+      </section>
+
+      <section class="panel">
+        <h2>CSV fallback mode</h2>
+        <p class="small">Use this when you see a connection error or opened the HTML file without starting the server. Select <code>Products - Green-lit (Metadata CSV) (7)_002.csv</code>; optionally select an existing <code>records/updated-itemcodes.json</code>. Browser security prevents overwriting local files, so fallback mode downloads replacement files after submit.</p>
+        <div class="grid">
+          <div>
+            <label for="csvFile">Products CSV</label>
+            <input id="csvFile" type="file" accept=".csv,text/csv" />
+          </div>
+          <div>
+            <label for="lockFile">Updated itemcodes JSON (optional)</label>
+            <input id="lockFile" type="file" accept=".json,application/json" />
+          </div>
+        </div>
+        <div id="file-message" class="message hidden"></div>
       </section>
 
       <section id="editor-panel" class="panel hidden">
@@ -154,16 +185,39 @@
     </main>
 
     <script>
+      const ITEM_CODE_COLUMN = 'Item Code';
+      const EDITABLE_FIELDS = [
+        'Press Title',
+        'Press Title - Sort',
+        'Press Title - Short',
+        'Long Description',
+        'Medium Description',
+        'Short Description',
+        'Xtra Short Description',
+        'Tiny Description',
+      ];
+      const PARENT_CHILD_FIELDS = ['Series', 'Season', 'S#', 'Episode', 'Episode Number'];
+      const METADATA_SCHEMA = 'products-green-lit.metadata.schema';
+      const PARENT_CHILD_SCHEMA = 'products-green-lit.parent-child.schema';
+      const DEFAULT_CSV_FILENAME = 'Products - Green-lit (Metadata CSV) (7)_002.csv';
+
       const lookupForm = document.querySelector('#lookup-form');
       const updateForm = document.querySelector('#update-form');
       const editorPanel = document.querySelector('#editor-panel');
       const fieldList = document.querySelector('#field-list');
       const lookupMessage = document.querySelector('#lookup-message');
+      const fileMessage = document.querySelector('#file-message');
       const submitMessage = document.querySelector('#submit-message');
       const submitButton = document.querySelector('#submit-button');
       const editorHeading = document.querySelector('#editor-heading');
+      const csvFileInput = document.querySelector('#csvFile');
+      const lockFileInput = document.querySelector('#lockFile');
+
       let activeProduct = null;
       let activeFields = [];
+      let activeMode = 'server';
+      let localCsv = null;
+      let localUpdatedItemCodes = new Set();
 
       function showMessage(element, type, text) {
         element.className = `message ${type}`;
@@ -176,10 +230,125 @@
         element.textContent = '';
       }
 
-      function renderProduct(product, fields, locked) {
+      function parseCsv(text) {
+        const cleanText = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+        const rows = [];
+        let row = [];
+        let field = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < cleanText.length; i += 1) {
+          const char = cleanText[i];
+          const next = cleanText[i + 1];
+
+          if (inQuotes) {
+            if (char === '"' && next === '"') {
+              field += '"';
+              i += 1;
+            } else if (char === '"') {
+              inQuotes = false;
+            } else {
+              field += char;
+            }
+            continue;
+          }
+
+          if (char === '"') {
+            inQuotes = true;
+          } else if (char === ',') {
+            row.push(field);
+            field = '';
+          } else if (char === '\n') {
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = '';
+          } else if (char === '\r') {
+            if (next === '\n') continue;
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = '';
+          } else {
+            field += char;
+          }
+        }
+
+        if (field.length > 0 || row.length > 0) {
+          row.push(field);
+          rows.push(row);
+        }
+
+        return rows;
+      }
+
+      function stringifyCsv(rows) {
+        return `${rows.map((row) => row.map(formatCsvField).join(',')).join('\n')}\n`;
+      }
+
+      function formatCsvField(value) {
+        const normalizedValue = value == null ? '' : String(value);
+        if (/[",\r\n]/.test(normalizedValue)) {
+          return `"${normalizedValue.replaceAll('"', '""')}"`;
+        }
+        return normalizedValue;
+      }
+
+      function rowToObject(headers, row) {
+        return Object.fromEntries(headers.map((header, index) => [header, row[index] || '']));
+      }
+
+      function pickFields(product, fields) {
+        return Object.fromEntries(fields.map((field) => [field, product[field] || '']));
+      }
+
+      function getPresentEditableFields(headers) {
+        return EDITABLE_FIELDS.filter((field) => headers.includes(field));
+      }
+
+      function findLocalRowIndex(itemCode) {
+        if (!localCsv) return -1;
+        const itemCodeIndex = localCsv.headers.indexOf(ITEM_CODE_COLUMN);
+        return localCsv.rows.findIndex((row, index) => index > 0 && row[itemCodeIndex] === itemCode);
+      }
+
+      function buildSchemaDocuments({ itemCode, submittedAt, submittedBy, notes, originalProduct, updatedProduct }) {
+        return {
+          metadata: {
+            $schema: METADATA_SCHEMA,
+            itemCode,
+            submittedAt,
+            submittedBy,
+            notes,
+            originalMetadata: pickFields(originalProduct, EDITABLE_FIELDS),
+            updatedMetadata: pickFields(updatedProduct, EDITABLE_FIELDS),
+          },
+          parentChild: {
+            $schema: PARENT_CHILD_SCHEMA,
+            itemCode,
+            submittedAt,
+            hierarchy: pickFields(updatedProduct, PARENT_CHILD_FIELDS),
+          },
+        };
+      }
+
+      function downloadFile(filename, contents, type) {
+        const blob = new Blob([contents], { type });
+        const downloadUrl = URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = downloadUrl;
+        downloadLink.download = filename;
+        document.body.append(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
+        URL.revokeObjectURL(downloadUrl);
+      }
+
+      function renderProduct(product, fields, locked, mode) {
         activeProduct = product;
         activeFields = fields;
-        editorHeading.textContent = `Edit product ${product['Item Code']}`;
+        activeMode = mode;
+        editorHeading.textContent = `Edit product ${product[ITEM_CODE_COLUMN]}`;
         fieldList.innerHTML = '';
 
         fields.forEach((field) => {
@@ -205,12 +374,41 @@
         });
 
         submitButton.disabled = locked;
+        submitButton.textContent = mode === 'local' ? 'Download updated CSV, lock record, and JSON' : 'Update CSV and download JSON';
         editorPanel.classList.remove('hidden');
         if (locked) {
           showMessage(submitMessage, 'error', 'This itemcode has already received an update and is locked.');
         } else {
           hideMessage(submitMessage);
         }
+      }
+
+      async function loadLocalProduct(itemCode) {
+        if (!localCsv) {
+          showMessage(lookupMessage, 'error', 'Cannot reach the backend and no CSV is loaded. Start the server with `npm start` and open http://localhost:3000, or select the Products CSV in CSV fallback mode.');
+          return false;
+        }
+
+        const rowIndex = findLocalRowIndex(itemCode);
+        if (rowIndex === -1) {
+          showMessage(lookupMessage, 'error', `No product found for itemcode ${itemCode} in the selected CSV.`);
+          return true;
+        }
+
+        const product = rowToObject(localCsv.headers, localCsv.rows[rowIndex]);
+        const locked = localUpdatedItemCodes.has(itemCode);
+        showMessage(lookupMessage, locked ? 'error' : 'info', locked ? 'Product found in selected CSV, but this itemcode is locked.' : `Product loaded from selected CSV. JSON output will include ${METADATA_SCHEMA} and ${PARENT_CHILD_SCHEMA}.`);
+        renderProduct(product, getPresentEditableFields(localCsv.headers), locked, 'local');
+        return true;
+      }
+
+      async function loadServerProduct(itemCode) {
+        const response = await fetch(`api/product/${encodeURIComponent(itemCode)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to load product.');
+
+        showMessage(lookupMessage, data.locked ? 'error' : 'info', data.locked ? 'Product found, but this itemcode is locked.' : `Product loaded. JSON output will include ${data.metadataSchema} and ${data.parentChildSchema}.`);
+        renderProduct(data.product, data.updateableFields, data.locked, 'server');
       }
 
       lookupForm.addEventListener('submit', async (event) => {
@@ -222,17 +420,115 @@
         const itemCode = new FormData(lookupForm).get('itemCode').trim();
         if (!itemCode) return;
 
-        try {
-          const response = await fetch(`/api/product/${encodeURIComponent(itemCode)}`);
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.error || 'Unable to load product.');
+        if (localCsv) {
+          await loadLocalProduct(itemCode);
+          return;
+        }
 
-          showMessage(lookupMessage, data.locked ? 'error' : 'info', data.locked ? 'Product found, but this itemcode is locked.' : `Product loaded. JSON output will include ${data.metadataSchema} and ${data.parentChildSchema}.`);
-          renderProduct(data.product, data.updateableFields, data.locked);
+        try {
+          await loadServerProduct(itemCode);
         } catch (error) {
+          if (error instanceof TypeError || error.message === 'Failed to fetch') {
+            await loadLocalProduct(itemCode);
+            return;
+          }
           showMessage(lookupMessage, 'error', error.message);
         }
       });
+
+      csvFileInput.addEventListener('change', async () => {
+        const [file] = csvFileInput.files;
+        if (!file) return;
+
+        const text = await file.text();
+        const rows = parseCsv(text);
+        const headers = rows[0] || [];
+        if (!headers.includes(ITEM_CODE_COLUMN)) {
+          localCsv = null;
+          showMessage(fileMessage, 'error', `The selected CSV is missing the required ${ITEM_CODE_COLUMN} column.`);
+          return;
+        }
+
+        const missingFields = EDITABLE_FIELDS.filter((field) => !headers.includes(field));
+        if (missingFields.length > 0) {
+          localCsv = null;
+          showMessage(fileMessage, 'error', `The selected CSV is missing editable fields: ${missingFields.join(', ')}.`);
+          return;
+        }
+
+        localCsv = { filename: file.name || DEFAULT_CSV_FILENAME, headers, rows };
+        showMessage(fileMessage, 'success', `Loaded ${file.name || DEFAULT_CSV_FILENAME}. Lookups will use the selected CSV until the page is refreshed.`);
+      });
+
+      lockFileInput.addEventListener('change', async () => {
+        const [file] = lockFileInput.files;
+        if (!file) return;
+
+        const record = JSON.parse(await file.text());
+        localUpdatedItemCodes = new Set((record.updatedItemCodes || []).map(String));
+        showMessage(fileMessage, 'success', `Loaded ${localUpdatedItemCodes.size} locked itemcode${localUpdatedItemCodes.size === 1 ? '' : 's'} from ${file.name}.`);
+      });
+
+      function submitLocalUpdate(payload) {
+        const itemCode = payload.itemCode;
+        if (localUpdatedItemCodes.has(itemCode)) {
+          throw new Error(`Itemcode ${itemCode} has already received an update and cannot be updated again.`);
+        }
+
+        const rowIndex = findLocalRowIndex(itemCode);
+        if (rowIndex === -1) {
+          throw new Error(`No product found for itemcode ${itemCode} in the selected CSV.`);
+        }
+
+        const originalProduct = rowToObject(localCsv.headers, localCsv.rows[rowIndex]);
+        const updatedProduct = { ...originalProduct };
+
+        for (const field of activeFields) {
+          const columnIndex = localCsv.headers.indexOf(field);
+          const normalizedValue = payload.updates[field] == null ? '' : String(payload.updates[field]);
+          localCsv.rows[rowIndex][columnIndex] = normalizedValue;
+          updatedProduct[field] = normalizedValue;
+        }
+
+        const submittedAt = new Date().toISOString();
+        const submissionRecord = {
+          itemCode,
+          submittedAt,
+          submittedBy: payload.submittedBy,
+          notes: payload.notes,
+          schemas: {
+            metadata: METADATA_SCHEMA,
+            parentChild: PARENT_CHILD_SCHEMA,
+          },
+          jsonFiles: buildSchemaDocuments({
+            itemCode,
+            submittedAt,
+            submittedBy: payload.submittedBy,
+            notes: payload.notes,
+            originalProduct,
+            updatedProduct,
+          }),
+        };
+
+        localUpdatedItemCodes.add(itemCode);
+        downloadFile(`product-${itemCode}-update.json`, JSON.stringify(submissionRecord, null, 2), 'application/json');
+        downloadFile(localCsv.filename || DEFAULT_CSV_FILENAME, stringifyCsv(localCsv.rows), 'text/csv');
+        downloadFile('updated-itemcodes.json', JSON.stringify({ updatedItemCodes: [...localUpdatedItemCodes].sort() }, null, 2), 'application/json');
+        renderProduct(updatedProduct, activeFields, true, 'local');
+        showMessage(submitMessage, 'success', 'Downloaded the JSON receipt, updated CSV, and updated itemcode lock record. Replace your local CSV and lock record with these downloaded files.');
+      }
+
+      async function submitServerUpdate(payload) {
+        const response = await fetch('api/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to submit update.');
+        downloadFile(`product-${payload.itemCode}-update.json`, JSON.stringify(data, null, 2), 'application/json');
+        showMessage(submitMessage, 'success', 'CSV updated, itemcode locked, and JSON receipt downloaded.');
+      }
 
       updateForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -241,37 +537,22 @@
         hideMessage(submitMessage);
 
         const formData = new FormData(updateForm);
-        const updates = Object.fromEntries(activeFields.map((field) => [field, formData.get(field) || '']));
         const payload = {
-          itemCode: activeProduct['Item Code'],
+          itemCode: activeProduct[ITEM_CODE_COLUMN],
           submittedBy: formData.get('submittedBy') || '',
           notes: formData.get('notes') || '',
-          updates,
+          updates: Object.fromEntries(activeFields.map((field) => [field, formData.get(field) || ''])),
         };
 
         try {
-          const response = await fetch('/api/update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.error || 'Unable to submit update.');
-
-          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-          const downloadUrl = URL.createObjectURL(blob);
-          const downloadLink = document.createElement('a');
-          downloadLink.href = downloadUrl;
-          downloadLink.download = `product-${activeProduct['Item Code']}-update.json`;
-          document.body.append(downloadLink);
-          downloadLink.click();
-          downloadLink.remove();
-          URL.revokeObjectURL(downloadUrl);
-
-          showMessage(submitMessage, 'success', 'CSV updated, itemcode locked, and JSON receipt downloaded.');
+          if (activeMode === 'local') {
+            submitLocalUpdate(payload);
+          } else {
+            await submitServerUpdate(payload);
+          }
         } catch (error) {
           submitButton.disabled = false;
-          showMessage(submitMessage, 'error', error.message);
+          showMessage(submitMessage, 'error', error.message === 'Failed to fetch' ? 'Cannot reach the backend. Start the server with `npm start`, or load the CSV in fallback mode and try again.' : error.message);
         }
       });
     </script>
