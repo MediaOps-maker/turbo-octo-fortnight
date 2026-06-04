@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Product Metadata Update Form</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.4;
+      }
+      body {
+        margin: 0;
+        background: #f5f7fb;
+        color: #172033;
+      }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+      .panel {
+        background: #fff;
+        border: 1px solid #dbe2ef;
+        border-radius: 16px;
+        box-shadow: 0 12px 30px rgb(23 32 51 / 8%);
+        margin-bottom: 1.5rem;
+        padding: 1.5rem;
+      }
+      h1, h2 {
+        margin-top: 0;
+      }
+      label {
+        display: block;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+      }
+      input, textarea, button {
+        border-radius: 10px;
+        box-sizing: border-box;
+        font: inherit;
+      }
+      input, textarea {
+        border: 1px solid #b7c2d7;
+        padding: 0.75rem;
+        width: 100%;
+      }
+      textarea {
+        min-height: 6rem;
+        resize: vertical;
+      }
+      button {
+        background: #175cff;
+        border: 0;
+        color: #fff;
+        cursor: pointer;
+        font-weight: 800;
+        padding: 0.8rem 1rem;
+      }
+      button.secondary {
+        background: #43516a;
+      }
+      button:disabled {
+        background: #93a0b8;
+        cursor: not-allowed;
+      }
+      .lookup {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: 1fr auto;
+      }
+      .grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+      .field-card {
+        border: 1px solid #e2e7f1;
+        border-radius: 12px;
+        padding: 1rem;
+      }
+      .current-value {
+        background: #eef3ff;
+        border-radius: 8px;
+        color: #32405a;
+        margin: 0.25rem 0 0.75rem;
+        padding: 0.6rem;
+        white-space: pre-wrap;
+      }
+      .message {
+        border-radius: 12px;
+        margin-top: 1rem;
+        padding: 1rem;
+      }
+      .message.error {
+        background: #fff0f0;
+        color: #8a1f1f;
+      }
+      .message.success {
+        background: #eefbf0;
+        color: #1d6b2a;
+      }
+      .message.info {
+        background: #eef3ff;
+        color: #28437d;
+      }
+      .hidden {
+        display: none;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #101521; color: #eef3ff; }
+        .panel { background: #171f30; border-color: #2c3852; }
+        input, textarea { background: #101521; border-color: #506080; color: #eef3ff; }
+        .field-card { border-color: #2c3852; }
+        .current-value { background: #101a2e; color: #cbd6ee; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="panel">
+        <h1>Product Metadata Update Form</h1>
+        <p>Look up a record by <strong>itemcode</strong>, edit the CSV-backed metadata fields, then submit once. The app updates the CSV, records the itemcode as locked, and downloads a JSON receipt.</p>
+        <form id="lookup-form" class="lookup">
+          <div>
+            <label for="itemCode">Itemcode</label>
+            <input id="itemCode" name="itemCode" required autocomplete="off" placeholder="Example: 950672" />
+          </div>
+          <button type="submit">Load product</button>
+        </form>
+        <div id="lookup-message" class="message hidden"></div>
+      </section>
+
+      <section id="editor-panel" class="panel hidden">
+        <h2 id="editor-heading">Edit product</h2>
+        <form id="update-form">
+          <div class="grid">
+            <div>
+              <label for="submittedBy">Submitted by</label>
+              <input id="submittedBy" name="submittedBy" autocomplete="name" placeholder="Your name or team" />
+            </div>
+            <div>
+              <label for="notes">Update notes</label>
+              <textarea id="notes" name="notes" placeholder="Optional note about this change"></textarea>
+            </div>
+          </div>
+          <h2>CSV fields</h2>
+          <div id="field-list" class="grid"></div>
+          <div id="submit-message" class="message hidden"></div>
+          <p><button id="submit-button" type="submit">Update CSV and download JSON</button></p>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      const lookupForm = document.querySelector('#lookup-form');
+      const updateForm = document.querySelector('#update-form');
+      const editorPanel = document.querySelector('#editor-panel');
+      const fieldList = document.querySelector('#field-list');
+      const lookupMessage = document.querySelector('#lookup-message');
+      const submitMessage = document.querySelector('#submit-message');
+      const submitButton = document.querySelector('#submit-button');
+      const editorHeading = document.querySelector('#editor-heading');
+      let activeProduct = null;
+      let activeFields = [];
+
+      function showMessage(element, type, text) {
+        element.className = `message ${type}`;
+        element.textContent = text;
+        element.classList.remove('hidden');
+      }
+
+      function hideMessage(element) {
+        element.classList.add('hidden');
+        element.textContent = '';
+      }
+
+      function renderProduct(product, fields, locked) {
+        activeProduct = product;
+        activeFields = fields;
+        editorHeading.textContent = `Edit product ${product['Item Code']}`;
+        fieldList.innerHTML = '';
+
+        fields.forEach((field) => {
+          const card = document.createElement('div');
+          card.className = 'field-card';
+
+          const label = document.createElement('label');
+          label.htmlFor = `field-${field}`;
+          label.textContent = field;
+
+          const current = document.createElement('div');
+          current.className = 'current-value';
+          current.textContent = product[field] || '(blank)';
+
+          const input = document.createElement(field.toLowerCase().includes('description') ? 'textarea' : 'input');
+          input.id = `field-${field}`;
+          input.name = field;
+          input.value = product[field] || '';
+          input.disabled = locked;
+
+          card.append(label, current, input);
+          fieldList.append(card);
+        });
+
+        submitButton.disabled = locked;
+        editorPanel.classList.remove('hidden');
+        if (locked) {
+          showMessage(submitMessage, 'error', 'This itemcode has already received an update and is locked.');
+        } else {
+          hideMessage(submitMessage);
+        }
+      }
+
+      lookupForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        hideMessage(lookupMessage);
+        hideMessage(submitMessage);
+        editorPanel.classList.add('hidden');
+
+        const itemCode = new FormData(lookupForm).get('itemCode').trim();
+        if (!itemCode) return;
+
+        try {
+          const response = await fetch(`/api/product/${encodeURIComponent(itemCode)}`);
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Unable to load product.');
+
+          showMessage(lookupMessage, data.locked ? 'error' : 'info', data.locked ? 'Product found, but this itemcode is locked.' : 'Product loaded.');
+          renderProduct(data.product, data.updateableFields, data.locked);
+        } catch (error) {
+          showMessage(lookupMessage, 'error', error.message);
+        }
+      });
+
+      updateForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!activeProduct) return;
+        submitButton.disabled = true;
+        hideMessage(submitMessage);
+
+        const formData = new FormData(updateForm);
+        const updates = Object.fromEntries(activeFields.map((field) => [field, formData.get(field) || '']));
+        const payload = {
+          itemCode: activeProduct['Item Code'],
+          submittedBy: formData.get('submittedBy') || '',
+          notes: formData.get('notes') || '',
+          updates,
+        };
+
+        try {
+          const response = await fetch('/api/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Unable to submit update.');
+
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const downloadUrl = URL.createObjectURL(blob);
+          const downloadLink = document.createElement('a');
+          downloadLink.href = downloadUrl;
+          downloadLink.download = `product-${activeProduct['Item Code']}-update.json`;
+          document.body.append(downloadLink);
+          downloadLink.click();
+          downloadLink.remove();
+          URL.revokeObjectURL(downloadUrl);
+
+          showMessage(submitMessage, 'success', 'CSV updated, itemcode locked, and JSON receipt downloaded.');
+        } catch (error) {
+          submitButton.disabled = false;
+          showMessage(submitMessage, 'error', error.message);
+        }
+      });
+    </script>
+  </body>
+</html>
