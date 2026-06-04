@@ -4,7 +4,7 @@ This repository contains a small Node.js web application with a BYUtv-inspired b
 
 ## What it does
 
-- Provides a BYUtv-inspired interface with navy/blue gradients, workflow status pills, and polished metadata form cards.
+- Matches the current BYUtv website style with a dark streaming-app shell, lowercase navigation, oversized hero typography, blue accent treatments, workflow pills, and polished metadata form cards.
 - Looks up one or more products from the CSV by the `Item Code` column.
 - Displays related `Series`, `S#`, and `Episode Number` context for each loaded itemcode when those values exist.
 - Renders only the approved editable metadata fields in a webform: `Press Title`, `Press Title - Sort`, `Press Title - Short`, `Long Description`, `Medium Description`, `Short Description`, `Xtra Short Description`, and `Tiny Description`.
