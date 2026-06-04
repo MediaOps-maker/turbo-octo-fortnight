@@ -1,0 +1,222 @@
+import { createServer } from 'node:http';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseCsv, stringifyCsv } from './lib/csv.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PORT = Number(process.env.PORT || 3000);
+const CSV_FILE = path.join(__dirname, 'Products - Green-lit (Metadata CSV) (7)_002.csv');
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const RECORDS_DIR = path.join(__dirname, 'records');
+const SUBMISSIONS_DIR = path.join(__dirname, 'submissions');
+const UPDATED_ITEMCODES_FILE = path.join(RECORDS_DIR, 'updated-itemcodes.json');
+const ITEM_CODE_COLUMN = 'Item Code';
+const PROTECTED_COLUMNS = new Set([ITEM_CODE_COLUMN]);
+
+async function ensureStorage() {
+  await mkdir(RECORDS_DIR, { recursive: true });
+  await mkdir(SUBMISSIONS_DIR, { recursive: true });
+  try {
+    await readFile(UPDATED_ITEMCODES_FILE, 'utf8');
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    await writeFile(UPDATED_ITEMCODES_FILE, JSON.stringify({ updatedItemCodes: [] }, null, 2));
+  }
+}
+
+async function readCsvTable() {
+  const csv = await readFile(CSV_FILE, 'utf8');
+  const rows = parseCsv(csv);
+  if (rows.length === 0) {
+    throw new Error('The CSV file is empty.');
+  }
+  return { headers: rows[0], rows };
+}
+
+async function readUpdatedItemCodes() {
+  await ensureStorage();
+  const record = JSON.parse(await readFile(UPDATED_ITEMCODES_FILE, 'utf8'));
+  return new Set(record.updatedItemCodes || []);
+}
+
+async function writeUpdatedItemCodes(updatedItemCodes) {
+  await writeFile(
+    UPDATED_ITEMCODES_FILE,
+    JSON.stringify({ updatedItemCodes: [...updatedItemCodes].sort() }, null, 2)
+  );
+}
+
+function findRowIndexByItemCode(rows, headers, itemCode) {
+  const itemCodeIndex = headers.indexOf(ITEM_CODE_COLUMN);
+  if (itemCodeIndex === -1) {
+    throw new Error(`Missing required "${ITEM_CODE_COLUMN}" column in CSV.`);
+  }
+  return rows.findIndex((row, index) => index > 0 && row[itemCodeIndex] === itemCode);
+}
+
+function rowToObject(headers, row) {
+  return Object.fromEntries(headers.map((header, index) => [header, row[index] ?? '']));
+}
+
+function jsonResponse(res, statusCode, payload, extraHeaders = {}) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json; charset=utf-8',
+    ...extraHeaders,
+  });
+  res.end(JSON.stringify(payload, null, 2));
+}
+
+function errorResponse(res, statusCode, message) {
+  jsonResponse(res, statusCode, { error: message });
+}
+
+async function readRequestJson(req) {
+  let body = '';
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 1_000_000) {
+      throw new Error('Request body is too large.');
+    }
+  }
+  return JSON.parse(body || '{}');
+}
+
+function sanitizeItemCode(itemCode) {
+  return String(itemCode || '').trim();
+}
+
+function sanitizeFilename(value) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+async function getProduct(req, res, itemCode) {
+  const normalizedItemCode = sanitizeItemCode(itemCode);
+  const { headers, rows } = await readCsvTable();
+  const rowIndex = findRowIndexByItemCode(rows, headers, normalizedItemCode);
+  if (rowIndex === -1) {
+    return errorResponse(res, 404, `No product found for itemcode ${normalizedItemCode}.`);
+  }
+
+  const updatedItemCodes = await readUpdatedItemCodes();
+  return jsonResponse(res, 200, {
+    itemCode: normalizedItemCode,
+    locked: updatedItemCodes.has(normalizedItemCode),
+    headers,
+    product: rowToObject(headers, rows[rowIndex]),
+    updateableFields: headers.filter((header) => !PROTECTED_COLUMNS.has(header)),
+  });
+}
+
+async function submitUpdate(req, res) {
+  const payload = await readRequestJson(req);
+  const itemCode = sanitizeItemCode(payload.itemCode);
+  const updates = payload.updates || {};
+
+  if (!itemCode) {
+    return errorResponse(res, 400, 'An itemcode is required.');
+  }
+  if (typeof updates !== 'object' || Array.isArray(updates)) {
+    return errorResponse(res, 400, 'Updates must be an object keyed by CSV column name.');
+  }
+
+  await ensureStorage();
+  const updatedItemCodes = await readUpdatedItemCodes();
+  if (updatedItemCodes.has(itemCode)) {
+    return errorResponse(res, 409, `Itemcode ${itemCode} has already received an update and cannot be updated again.`);
+  }
+
+  const { headers, rows } = await readCsvTable();
+  const rowIndex = findRowIndexByItemCode(rows, headers, itemCode);
+  if (rowIndex === -1) {
+    return errorResponse(res, 404, `No product found for itemcode ${itemCode}.`);
+  }
+
+  const originalProduct = rowToObject(headers, rows[rowIndex]);
+  const updatedProduct = { ...originalProduct };
+
+  for (const [field, value] of Object.entries(updates)) {
+    if (!headers.includes(field) || PROTECTED_COLUMNS.has(field)) continue;
+    const columnIndex = headers.indexOf(field);
+    const normalizedValue = value == null ? '' : String(value);
+    rows[rowIndex][columnIndex] = normalizedValue;
+    updatedProduct[field] = normalizedValue;
+  }
+
+  const timestamp = new Date().toISOString();
+  const submissionRecord = {
+    itemCode,
+    submittedAt: timestamp,
+    submittedBy: String(payload.submittedBy || '').trim(),
+    notes: String(payload.notes || '').trim(),
+    originalProduct,
+    updatedProduct,
+  };
+
+  await writeFile(CSV_FILE, stringifyCsv(rows));
+  await writeFile(
+    path.join(SUBMISSIONS_DIR, `${sanitizeFilename(itemCode)}-${timestamp.replace(/[:.]/g, '-')}.json`),
+    JSON.stringify(submissionRecord, null, 2)
+  );
+  updatedItemCodes.add(itemCode);
+  await writeUpdatedItemCodes(updatedItemCodes);
+
+  return jsonResponse(res, 200, submissionRecord, {
+    'Content-Disposition': `attachment; filename="product-${sanitizeFilename(itemCode)}-update.json"`,
+  });
+}
+
+async function serveStatic(res, requestedPath) {
+  const filePath = path.normalize(path.join(PUBLIC_DIR, requestedPath === '/' ? 'index.html' : requestedPath));
+  const relativePath = path.relative(PUBLIC_DIR, filePath);
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    return errorResponse(res, 403, 'Forbidden.');
+  }
+
+  const ext = path.extname(filePath);
+  const contentTypes = {
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+  };
+
+  try {
+    const file = await readFile(filePath);
+    res.writeHead(200, { 'Content-Type': contentTypes[ext] || 'application/octet-stream' });
+    res.end(file);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return errorResponse(res, 404, 'Not found.');
+    }
+    throw error;
+  }
+}
+
+export const app = createServer(async (req, res) => {
+  try {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+
+    if (req.method === 'GET' && requestUrl.pathname.startsWith('/api/product/')) {
+      return getProduct(req, res, decodeURIComponent(requestUrl.pathname.replace('/api/product/', '')));
+    }
+
+    if (req.method === 'POST' && requestUrl.pathname === '/api/update') {
+      return submitUpdate(req, res);
+    }
+
+    if (req.method === 'GET') {
+      return serveStatic(res, requestUrl.pathname);
+    }
+
+    return errorResponse(res, 405, 'Method not allowed.');
+  } catch (error) {
+    return errorResponse(res, 500, error.message || 'Unexpected server error.');
+  }
+});
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  await ensureStorage();
+  app.listen(PORT, () => {
+    console.log(`Product update form available at http://localhost:${PORT}`);
+  });
+}
