@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://byub.example/schemas/products-green-lit-parent-child.schema.json",
+  "title": "Products Green-lit Parent/Child Relationship Index",
+  "type": "object",
+  "required": [
+    "source",
+    "relationshipRules",
+    "stats",
+    "lookupBySeries",
+    "lookupByItemCode",
+    "rowDataByItemCode",
+    "hierarchy"
+  ],
+  "properties": {
+    "source": {
+      "type": "object"
+    },
+    "relationshipRules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stats": {
+      "type": "object"
+    },
+    "lookupBySeries": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/seriesLookupEntry"
+      }
+    },
+    "lookupByItemCode": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/itemLookupEntry"
+      }
+    },
+    "rowDataByItemCode": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/sourceRow"
+      }
+    },
+    "hierarchy": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/seriesNode"
+      }
+    }
+  },
+  "$defs": {
+    "sourceRow": {
+      "type": "object",
+      "required": [
+        "Series",
+        "Season",
+        "S#",
+        "Episode",
+        "Episode Number",
+        "Expected Duration",
+        "Press Title",
+        "Press Title - Sort",
+        "Press Title - Short",
+        "Long Description",
+        "Medium Description",
+        "Short Description",
+        "Xtra Short Description",
+        "Tiny Description",
+        "Item Code"
+      ],
+      "properties": {
+        "Series": {
+          "type": "string"
+        },
+        "Season": {
+          "type": "string"
+        },
+        "S#": {
+          "type": "string"
+        },
+        "Episode": {
+          "type": "string"
+        },
+        "Episode Number": {
+          "type": "string"
+        },
+        "Expected Duration": {
+          "type": "string"
+        },
+        "Press Title": {
+          "type": "string"
+        },
+        "Press Title - Sort": {
+          "type": "string"
+        },
+        "Press Title - Short": {
+          "type": "string"
+        },
+        "Long Description": {
+          "type": "string"
+        },
+        "Medium Description": {
+          "type": "string"
+        },
+        "Short Description": {
+          "type": "string"
+        },
+        "Xtra Short Description": {
+          "type": "string"
+        },
+        "Tiny Description": {
+          "type": "string"
+        },
+        "Item Code": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "itemSummary": {
+      "type": "object",
+      "required": [
+        "itemCode",
+        "level",
+        "series",
+        "season",
+        "seasonNumber",
+        "episode",
+        "episodeNumber",
+        "title",
+        "data"
+      ],
+      "properties": {
+        "itemCode": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "excludedBlankSeriesItem",
+            "series",
+            "unseasonedSeriesItem",
+            "unclassifiedSeriesItem",
+            "season",
+            "episode"
+          ]
+        },
+        "series": {
+          "type": "string"
+        },
+        "season": {
+          "type": "string"
+        },
+        "seasonNumber": {
+          "type": "string"
+        },
+        "episode": {
+          "type": "string"
+        },
+        "episodeNumber": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "sortTitle": {
+          "type": "string"
+        },
+        "shortTitle": {
+          "type": "string"
+        },
+        "expectedDuration": {
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/sourceRow"
+        }
+      },
+      "additionalProperties": true
+    },
+    "itemLookupEntry": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/itemSummary"
+        },
+        {
+          "type": "object",
+          "required": [
+            "parent",
+            "childrenItemCodes",
+            "descendantItemCodes",
+            "descendantCount"
+          ],
+          "properties": {
+            "parent": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              ]
+            },
+            "childrenItemCodes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "descendantItemCodes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "descendantCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "seriesLookupEntry": {
+      "type": "object",
+      "required": [
+        "series",
+        "seriesItemCodes",
+        "childrenItemCodes",
+        "descendantItemCodes",
+        "descendantCount"
+      ],
+      "properties": {
+        "series": {
+          "type": "string"
+        },
+        "seriesItemCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "childrenItemCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "descendantItemCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "descendantCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "seasonNode": {
+      "type": "object",
+      "required": [
+        "seasonNumber",
+        "seasonItemCodes",
+        "childrenItemCodes",
+        "descendantItemCodes",
+        "episodeCount",
+        "episodes"
+      ],
+      "properties": {
+        "seasonNumber": {
+          "type": "string"
+        },
+        "seasonItemCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "seasonRows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/itemSummary"
+          }
+        },
+        "childrenItemCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "descendantItemCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "episodeCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "episodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/itemSummary"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "seriesNode": {
+      "type": "object",
+      "required": [
+        "series",
+        "seriesItemCodes",
+        "seriesRows",
+        "unseasonedItems",
+        "childrenItemCodes",
+        "descendantItemCodes",
+        "seasonGroupCount",
+        "episodeCount",
+        "seasons"
+      ],
+      "properties": {
+        "series": {
+          "type": "string"
+        },
+        "seriesItemCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "seriesRows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/itemSummary"
+          }
+        },
+        "unseasonedItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/itemSummary"
+          }
+        },
+        "childrenItemCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "descendantItemCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "seriesItemCodeCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unseasonedItemCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seasonGroupCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seasonItemCodeCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "episodeCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/seasonNode"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

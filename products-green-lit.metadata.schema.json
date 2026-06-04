@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://byub.example/schemas/products-green-lit-metadata.schema.json",
+  "title": "Products Green-lit Metadata CSV",
+  "description": "Schema for JSON created from the CSV file \"Products - Green-lit (Metadata CSV) (7).csv\". The source CSV has 20,987 rows and 15 columns. Empty CSV cells are represented as empty strings. This version includes item-code rows at the series, season, and episode levels.",
+  "type": "array",
+  "items": {
+    "$ref": "#/$defs/productMetadataRow"
+  },
+  "x-source": {
+    "fileName": "Products - Green-lit (Metadata CSV) (7).csv",
+    "rowCount": 20987,
+    "columnCount": 15,
+    "generatedFrom": "Observed headers, non-empty counts, maximum lengths, and value patterns in the source CSV"
+  },
+  "$defs": {
+    "optionalIntegerString": {
+      "type": "string",
+      "pattern": "^(?:|\\d+)$"
+    },
+    "optionalDurationLiteral": {
+      "type": "string",
+      "description": "A blank value or a duration as H:MM:SS or H:MM:SS.ff. The source CSV uses plain duration text such as 00:26:00.00.",
+      "pattern": "^(?:|\\d{1,2}:\\d{2}:\\d{2}(?:\\.\\d{1,2})?)$"
+    },
+    "productMetadataRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Series",
+        "Season",
+        "S#",
+        "Episode",
+        "Episode Number",
+        "Expected Duration",
+        "Press Title",
+        "Press Title - Sort",
+        "Press Title - Short",
+        "Long Description",
+        "Medium Description",
+        "Short Description",
+        "Xtra Short Description",
+        "Tiny Description",
+        "Item Code"
+      ],
+      "properties": {
+        "Series": {
+          "type": "string",
+          "description": "Series or parent title. Required for every viable row in this reference CSV.",
+          "minLength": 1,
+          "maxLength": 68,
+          "examples": [
+            "100 Azul"
+          ]
+        },
+        "Season": {
+          "type": "string",
+          "description": "Season label. Blank on series-level rows.",
+          "maxLength": 42,
+          "examples": [
+            "",
+            "Season 1"
+          ]
+        },
+        "S#": {
+          "description": "Season number as a CSV string. Blank on series-level rows.",
+          "allOf": [
+            {
+              "$ref": "#/$defs/optionalIntegerString"
+            },
+            {
+              "maxLength": 4
+            }
+          ],
+          "examples": [
+            "",
+            "1"
+          ]
+        },
+        "Episode": {
+          "type": "string",
+          "description": "Episode label. Blank on series-level and season-level rows.",
+          "maxLength": 97,
+          "examples": [
+            "",
+            "E001: Episode 1"
+          ]
+        },
+        "Episode Number": {
+          "description": "Episode number as a CSV string. Blank on series-level and season-level rows.",
+          "allOf": [
+            {
+              "$ref": "#/$defs/optionalIntegerString"
+            },
+            {
+              "maxLength": 4
+            }
+          ],
+          "examples": [
+            "",
+            "1",
+            "2"
+          ]
+        },
+        "Expected Duration": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/optionalDurationLiteral"
+            },
+            {
+              "maxLength": 11
+            }
+          ],
+          "examples": [
+            "",
+            "00:26:00.00"
+          ]
+        },
+        "Press Title": {
+          "type": "string",
+          "description": "Primary press/display title.",
+          "minLength": 1,
+          "maxLength": 179,
+          "examples": [
+            "100 Azul",
+            "Season 1",
+            "Episode 1"
+          ]
+        },
+        "Press Title - Sort": {
+          "type": "string",
+          "description": "Sort-friendly title.",
+          "maxLength": 163,
+          "examples": [
+            "",
+            "100 Azul",
+            "Episode 1"
+          ]
+        },
+        "Press Title - Short": {
+          "type": "string",
+          "description": "Short display title.",
+          "maxLength": 101,
+          "examples": [
+            "",
+            "100 Azul",
+            "Episode 1"
+          ]
+        },
+        "Long Description": {
+          "type": "string",
+          "description": "Long synopsis/description.",
+          "maxLength": 1584
+        },
+        "Medium Description": {
+          "type": "string",
+          "description": "Medium-length synopsis/description.",
+          "maxLength": 250
+        },
+        "Short Description": {
+          "type": "string",
+          "description": "Short synopsis/description.",
+          "maxLength": 100
+        },
+        "Xtra Short Description": {
+          "type": "string",
+          "description": "Extra-short synopsis/description.",
+          "maxLength": 60
+        },
+        "Tiny Description": {
+          "type": "string",
+          "description": "Tiny synopsis/description.",
+          "maxLength": 40
+        },
+        "Item Code": {
+          "type": "string",
+          "description": "Unique item code from the CSV. Kept as a string to preserve leading zeroes and alphanumeric item codes.",
+          "minLength": 1,
+          "maxLength": 8,
+          "pattern": "^[A-Za-z]?\\d+$",
+          "examples": [
+            "950672",
+            "950673",
+            "M705658"
+          ]
+        }
+      }
+    }
+  }
+}
