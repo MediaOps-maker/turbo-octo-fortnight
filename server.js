@@ -150,50 +150,35 @@ async function getProduct(req, res, itemCode) {
   });
 }
 
-async function submitUpdate(req, res) {
-  const payload = await readRequestJson(req);
-  const itemCode = sanitizeItemCode(payload.itemCode);
-  const updates = payload.updates || {};
-
-  if (!itemCode) {
-    return errorResponse(res, 400, 'An itemcode is required.');
-  }
+function validateUpdates(updates, presentEditableFields) {
   if (typeof updates !== 'object' || Array.isArray(updates)) {
-    return errorResponse(res, 400, 'Updates must be an object keyed by CSV column name.');
+    return 'Updates must be an object keyed by CSV column name.';
   }
 
-  await ensureStorage();
-  const updatedItemCodes = await readUpdatedItemCodes();
-  if (updatedItemCodes.has(itemCode)) {
-    return errorResponse(res, 409, `Itemcode ${itemCode} has already received an update and cannot be updated again.`);
-  }
-
-  const { headers, rows } = await readCsvTable();
-  const rowIndex = findRowIndexByItemCode(rows, headers, itemCode);
-  if (rowIndex === -1) {
-    return errorResponse(res, 404, `No product found for itemcode ${itemCode}.`);
-  }
-
-  const presentEditableFields = getPresentEditableFields(headers);
   const invalidFields = Object.keys(updates).filter((field) => !presentEditableFields.includes(field));
   if (invalidFields.length > 0) {
-    return errorResponse(res, 400, `Only these fields can be updated: ${presentEditableFields.join(', ')}. Invalid fields: ${invalidFields.join(', ')}.`);
+    return `Only these fields can be updated: ${presentEditableFields.join(', ')}. Invalid fields: ${invalidFields.join(', ')}.`;
   }
 
-  const originalProduct = rowToObject(headers, rows[rowIndex]);
+  return '';
+}
+
+function applyUpdatesToRow({ headers, row, updates, presentEditableFields }) {
+  const originalProduct = rowToObject(headers, row);
   const updatedProduct = { ...originalProduct };
 
   for (const field of presentEditableFields) {
     if (!Object.prototype.hasOwnProperty.call(updates, field)) continue;
     const columnIndex = headers.indexOf(field);
     const normalizedValue = updates[field] == null ? '' : String(updates[field]);
-    rows[rowIndex][columnIndex] = normalizedValue;
+    row[columnIndex] = normalizedValue;
     updatedProduct[field] = normalizedValue;
   }
 
-  const timestamp = new Date().toISOString();
-  const submittedBy = String(payload.submittedBy || '').trim();
-  const notes = String(payload.notes || '').trim();
+  return { originalProduct, updatedProduct };
+}
+
+function buildSubmissionRecord({ itemCode, timestamp, submittedBy, notes, originalProduct, updatedProduct }) {
   const schemaDocuments = buildSchemaDocuments({
     itemCode,
     submittedAt: timestamp,
@@ -202,7 +187,8 @@ async function submitUpdate(req, res) {
     originalProduct,
     updatedProduct,
   });
-  const submissionRecord = {
+
+  return {
     itemCode,
     submittedAt: timestamp,
     submittedBy,
@@ -213,6 +199,52 @@ async function submitUpdate(req, res) {
     },
     jsonFiles: schemaDocuments,
   };
+}
+
+async function submitUpdate(req, res) {
+  const payload = await readRequestJson(req);
+  const itemCode = sanitizeItemCode(payload.itemCode);
+  const updates = payload.updates || {};
+
+  if (!itemCode) {
+    return errorResponse(res, 400, 'An itemcode is required.');
+  }
+
+  await ensureStorage();
+  const updatedItemCodes = await readUpdatedItemCodes();
+  if (updatedItemCodes.has(itemCode)) {
+    return errorResponse(res, 409, `Itemcode ${itemCode} has already received an update and cannot be updated again.`);
+  }
+
+  const { headers, rows } = await readCsvTable();
+  const presentEditableFields = getPresentEditableFields(headers);
+  const validationError = validateUpdates(updates, presentEditableFields);
+  if (validationError) {
+    return errorResponse(res, 400, validationError);
+  }
+
+  const rowIndex = findRowIndexByItemCode(rows, headers, itemCode);
+  if (rowIndex === -1) {
+    return errorResponse(res, 404, `No product found for itemcode ${itemCode}.`);
+  }
+
+  const timestamp = new Date().toISOString();
+  const submittedBy = String(payload.submittedBy || '').trim();
+  const notes = String(payload.notes || '').trim();
+  const { originalProduct, updatedProduct } = applyUpdatesToRow({
+    headers,
+    row: rows[rowIndex],
+    updates,
+    presentEditableFields,
+  });
+  const submissionRecord = buildSubmissionRecord({
+    itemCode,
+    timestamp,
+    submittedBy,
+    notes,
+    originalProduct,
+    updatedProduct,
+  });
 
   await writeFile(CSV_FILE, stringifyCsv(rows));
   await writeFile(
@@ -224,6 +256,100 @@ async function submitUpdate(req, res) {
 
   return jsonResponse(res, 200, submissionRecord, {
     'Content-Disposition': `attachment; filename="product-${sanitizeFilename(itemCode)}-update.json"`,
+  });
+}
+
+async function submitBatchUpdate(req, res) {
+  const payload = await readRequestJson(req);
+  const items = Array.isArray(payload.items) ? payload.items : [];
+
+  if (items.length === 0) {
+    return errorResponse(res, 400, 'At least one itemcode update is required.');
+  }
+
+  const normalizedItems = items.map((item) => ({
+    itemCode: sanitizeItemCode(item.itemCode),
+    updates: item.updates || {},
+  }));
+  const missingItem = normalizedItems.find((item) => !item.itemCode);
+  if (missingItem) {
+    return errorResponse(res, 400, 'Every batch item requires an itemcode.');
+  }
+
+  const duplicateItemCodes = normalizedItems
+    .map((item) => item.itemCode)
+    .filter((itemCode, index, itemCodes) => itemCodes.indexOf(itemCode) !== index);
+  if (duplicateItemCodes.length > 0) {
+    return errorResponse(res, 400, `Duplicate itemcodes are not allowed in one submission: ${[...new Set(duplicateItemCodes)].join(', ')}.`);
+  }
+
+  await ensureStorage();
+  const updatedItemCodes = await readUpdatedItemCodes();
+  const lockedItemCodes = normalizedItems.map((item) => item.itemCode).filter((itemCode) => updatedItemCodes.has(itemCode));
+  if (lockedItemCodes.length > 0) {
+    return errorResponse(res, 409, `These itemcodes have already received updates and cannot be updated again: ${lockedItemCodes.join(', ')}.`);
+  }
+
+  const { headers, rows } = await readCsvTable();
+  const presentEditableFields = getPresentEditableFields(headers);
+  for (const item of normalizedItems) {
+    const validationError = validateUpdates(item.updates, presentEditableFields);
+    if (validationError) {
+      return errorResponse(res, 400, `Itemcode ${item.itemCode}: ${validationError}`);
+    }
+  }
+
+  const rowIndexesByItemCode = new Map();
+  for (const item of normalizedItems) {
+    const rowIndex = findRowIndexByItemCode(rows, headers, item.itemCode);
+    if (rowIndex === -1) {
+      return errorResponse(res, 404, `No product found for itemcode ${item.itemCode}.`);
+    }
+    rowIndexesByItemCode.set(item.itemCode, rowIndex);
+  }
+
+  const timestamp = new Date().toISOString();
+  const submittedBy = String(payload.submittedBy || '').trim();
+  const notes = String(payload.notes || '').trim();
+  const records = normalizedItems.map((item) => {
+    const { originalProduct, updatedProduct } = applyUpdatesToRow({
+      headers,
+      row: rows[rowIndexesByItemCode.get(item.itemCode)],
+      updates: item.updates,
+      presentEditableFields,
+    });
+    updatedItemCodes.add(item.itemCode);
+    return buildSubmissionRecord({
+      itemCode: item.itemCode,
+      timestamp,
+      submittedBy,
+      notes,
+      originalProduct,
+      updatedProduct,
+    });
+  });
+
+  const batchRecord = {
+    submittedAt: timestamp,
+    submittedBy,
+    notes,
+    itemCodes: records.map((record) => record.itemCode),
+    schemas: {
+      metadata: METADATA_SCHEMA,
+      parentChild: PARENT_CHILD_SCHEMA,
+    },
+    records,
+  };
+
+  await writeFile(CSV_FILE, stringifyCsv(rows));
+  await writeFile(
+    path.join(SUBMISSIONS_DIR, `batch-${timestamp.replace(/[:.]/g, '-')}.json`),
+    JSON.stringify(batchRecord, null, 2)
+  );
+  await writeUpdatedItemCodes(updatedItemCodes);
+
+  return jsonResponse(res, 200, batchRecord, {
+    'Content-Disposition': `attachment; filename="product-metadata-batch-${timestamp.replace(/[:.]/g, '-')}.json"`,
   });
 }
 
@@ -263,6 +389,10 @@ export const app = createServer(async (req, res) => {
 
     if (req.method === 'POST' && requestUrl.pathname === '/api/update') {
       return submitUpdate(req, res);
+    }
+
+    if (req.method === 'POST' && requestUrl.pathname === '/api/batch-update') {
+      return submitBatchUpdate(req, res);
     }
 
     if (req.method === 'GET') {
