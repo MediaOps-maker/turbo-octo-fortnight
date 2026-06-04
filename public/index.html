@@ -578,6 +578,9 @@
           card.querySelector(`[name="${field}"]`).value = draftValue;
         });
       }
+      function scrollToBatchWorkspace() {
+        batchPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
       function selectItem(index) {
         activeIndex = index;
         const item = batchItems[index];
@@ -674,9 +677,11 @@
         renderItemList();
         if (nextNeedsEditIndex !== -1) {
           selectItem(nextNeedsEditIndex);
+          scrollToBatchWorkspace();
           showMessage(submitMessage, 'success', `Itemcode ${completedItemCode} is complete. Moved to itemcode ${batchItems[nextNeedsEditIndex].itemCode}.`);
         } else {
           selectItem(activeIndex);
+          scrollToBatchWorkspace();
           showMessage(submitMessage, 'success', `Itemcode ${completedItemCode} is complete. All loaded itemcodes are complete; final export/submission is now available.`);
         }
       });
