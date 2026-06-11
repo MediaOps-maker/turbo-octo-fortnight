@@ -635,6 +635,7 @@ const titleEl = document.querySelector("#worksheet-title");
 const metaEl = document.querySelector("#worksheet-meta");
 const directionsEl = document.querySelector("#worksheet-directions");
 const scoreCard = document.querySelector("#score-card");
+const studyPlanEl = document.querySelector("#study-plan");
 const resetButton = document.querySelector("#reset-answers");
 const downloadButton = document.querySelector("#download-report");
 const printButton = document.querySelector("#print-report");
@@ -663,6 +664,7 @@ resetButton.addEventListener("click", () => {
   worksheetForm.reset();
   lastResults = null;
   scoreCard.hidden = true;
+  clearStudyPlan();
   downloadButton.disabled = true;
   printButton.disabled = true;
   document.querySelectorAll(".question-card").forEach((card) => {
@@ -700,6 +702,7 @@ function generateWorksheet(level, count, mode = "ordered") {
       : ""
   }`;
   scoreCard.hidden = true;
+  clearStudyPlan();
   downloadButton.disabled = true;
   printButton.disabled = true;
   emptyState.classList.add("hidden");
@@ -821,6 +824,7 @@ function gradeWorksheet() {
 
   const percent = Math.round((correct / currentWorksheet.length) * 100);
   const level = LEVELS.find((item) => item.label === titleEl.textContent);
+  const studyPlan = buildStudyPlan(results);
   lastResults = {
     student: document.querySelector("#student-name").value.trim() || "Student",
     title: titleEl.textContent,
@@ -830,14 +834,94 @@ function gradeWorksheet() {
     total: currentWorksheet.length,
     percent,
     level,
+    studyPlan,
     questions: results,
   };
 
   scoreCard.hidden = false;
   scoreCard.innerHTML = `<span>Score</span><strong>${correct}/${currentWorksheet.length}</strong><span>${percent}%</span>`;
+  renderStudyPlan(studyPlan);
   downloadButton.disabled = false;
   printButton.disabled = false;
   scoreCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function clearStudyPlan() {
+  studyPlanEl.hidden = true;
+  studyPlanEl.innerHTML = "";
+}
+
+function buildStudyPlan(results) {
+  const missed = results.filter((question) => !question.isCorrect);
+  if (!missed.length) {
+    return {
+      isPerfect: true,
+      summary: "Great work — every answer was correct. Keep skills sharp with one mixed review worksheet later this week.",
+      items: [],
+    };
+  }
+
+  const groups = new Map();
+  missed.forEach((question) => {
+    const concept = identifyConcept(question);
+    if (!groups.has(concept.title)) {
+      groups.set(concept.title, { ...concept, questions: [] });
+    }
+    groups.get(concept.title).questions.push(question);
+  });
+
+  const items = [...groups.values()].map((group) => ({
+    ...group,
+    questionNumbers: group.questions.map((question) => question.number),
+    practiceTarget: Math.max(3, group.questions.length * 2),
+  }));
+
+  return {
+    isPerfect: false,
+    summary: `Focus first on ${items.length} concept ${items.length === 1 ? "area" : "areas"} from the missed questions. Rework the missed items, then complete the targeted practice below.`,
+    items,
+  };
+}
+
+function identifyConcept(question) {
+  const text = `${question.prompt} ${question.display || ""}`.toLowerCase();
+  const conceptRules = [
+    { match: ["solve", "equation", "proportion", "system", "inequality", "domain", "inverse"], title: "Equations and algebraic reasoning", focus: "undoing operations in order, balancing both sides, and checking solutions by substitution", practice: "Redo each equation step-by-step and substitute the answer back into the original problem." },
+    { match: ["factor", "quadratic", "vertex", "radical", "sqrt", "√", "exponent", "log", "power", "sin", "cos"], title: "Advanced algebra patterns", focus: "recognizing factoring patterns, exponent rules, radicals, logarithm meanings, and trig ratios", practice: "Make a rule card for each missed pattern, then complete several short problems using that rule." },
+    { match: ["perimeter", "area", "volume", "circumference", "triangle", "rectangle", "trapezoid", "cylinder", "angle", "pythagorean", "midpoint", "slope"], title: "Geometry and measurement", focus: "choosing the correct formula, substituting values, and labeling units", practice: "Write the formula first, substitute the numbers, and check that the unit matches the question." },
+    { match: ["fraction", "/", "simplify"], title: "Fractions and simplification", focus: "finding common denominators, simplifying by greatest common factor, and interpreting numerator/denominator", practice: "Practice simplifying fractions and explaining which common factor you divided out." },
+    { match: ["decimal", "percent", "%"], title: "Decimals and percents", focus: "place-value comparisons, decimal-to-percent conversion, and percent-of-a-number problems", practice: "Convert between decimals, fractions, and percents, then solve percent-of problems without a calculator." },
+    { match: ["add", "subtract", "multiply", "divide", "regroup", "mean", "unit price"], title: "Arithmetic operations", focus: "accurate computation, regrouping, operation choice, and checking work with inverse operations", practice: "Complete computation drills slowly, showing each place-value or operation step before checking." },
+    { match: ["place", "expanded", "hundreds", "tens", "ones", "round", "order", "greatest", "least", "compare", "pattern"], title: "Number sense and place value", focus: "reading place value, comparing numbers, rounding, and spotting patterns", practice: "Underline the place or pattern step first, then solve and explain the comparison or rounding rule." },
+    { match: ["probability", "prime", "odd", "even"], title: "Number properties and probability", focus: "classifying numbers, using factors, and writing favorable outcomes over total outcomes", practice: "List factors or outcomes before choosing the answer." },
+  ];
+
+  return conceptRules.find((rule) => rule.match.some((keyword) => text.includes(keyword))) || {
+    title: "Mixed problem solving",
+    focus: "identifying what the question asks and selecting the right strategy",
+    practice: "Restate the question in your own words, choose an operation or rule, solve, and check whether the answer is reasonable.",
+  };
+}
+
+function renderStudyPlan(plan) {
+  studyPlanEl.hidden = false;
+  studyPlanEl.innerHTML = "";
+
+  const title = document.createElement("h3");
+  title.textContent = plan.isPerfect ? "Study plan: maintain mastery" : "Study plan based on missed concepts";
+  const summary = document.createElement("p");
+  summary.textContent = plan.summary;
+  studyPlanEl.append(title, summary);
+
+  if (plan.isPerfect) return;
+
+  const list = document.createElement("ol");
+  plan.items.forEach((item) => {
+    const entry = document.createElement("li");
+    entry.innerHTML = `<strong>${escapeHtml(item.title)}</strong><span>Missed question${item.questionNumbers.length === 1 ? "" : "s"}: ${item.questionNumbers.join(", ")}</span><span>Focus: ${escapeHtml(item.focus)}.</span><span>Practice plan: ${escapeHtml(item.practice)} Aim for ${item.practiceTarget} correct practice problems before trying a new worksheet.</span>`;
+    list.append(entry);
+  });
+  studyPlanEl.append(list);
 }
 
 function updateFeedback(question, answer, isCorrect) {
@@ -976,6 +1060,7 @@ function slugify(value) {
 }
 
 function buildReportHtml(report) {
+  const studyPlan = buildStudyPlanHtml(report.studyPlan);
   const rows = report.questions
     .map(
       (question) => `
@@ -998,7 +1083,10 @@ function buildReportHtml(report) {
           body { color: #172033; font-family: Arial, sans-serif; line-height: 1.45; margin: 32px; }
           header { border-bottom: 2px solid #172033; margin-bottom: 20px; padding-bottom: 16px; }
           .score { background: #eaf1ff; border-radius: 12px; display: inline-block; font-size: 1.25rem; font-weight: 700; padding: 10px 14px; }
-          .report-question { border: 1px solid #d9e1ef; border-left-width: 8px; border-radius: 10px; margin: 12px 0; padding: 12px; page-break-inside: avoid; }
+          .study-plan-report, .report-question { border: 1px solid #d9e1ef; border-radius: 10px; margin: 12px 0; padding: 12px; page-break-inside: avoid; }
+          .study-plan-report { background: #f8fbff; }
+          .study-plan-report li { margin: 10px 0; }
+          .report-question { border-left-width: 8px; }
           .correct { border-left-color: #177245; }
           .incorrect { border-left-color: #b42318; }
         </style>
@@ -1010,9 +1098,24 @@ function buildReportHtml(report) {
           <p class="score">Score: ${report.correct}/${report.total} (${report.percent}%)</p>
           <p>${escapeHtml(report.directions)}</p>
         </header>
+        ${studyPlan}
         ${rows}
       </body>
     </html>`;
+}
+
+function buildStudyPlanHtml(plan) {
+  if (!plan) return "";
+  if (plan.isPerfect) {
+    return `<section class="study-plan-report"><h2>Study plan</h2><p>${escapeHtml(plan.summary)}</p></section>`;
+  }
+
+  const items = plan.items
+    .map(
+      (item) => `<li><strong>${escapeHtml(item.title)}</strong><br />Missed questions: ${item.questionNumbers.join(", ")}<br />Focus: ${escapeHtml(item.focus)}.<br />Practice plan: ${escapeHtml(item.practice)} Aim for ${item.practiceTarget} correct practice problems before trying a new worksheet.</li>`,
+    )
+    .join("");
+  return `<section class="study-plan-report"><h2>Study plan based on missed concepts</h2><p>${escapeHtml(plan.summary)}</p><ol>${items}</ol></section>`;
 }
 
 function escapeHtml(value) {
