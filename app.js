@@ -11,11 +11,11 @@ const LEVELS = [
       () => textQuestion("Write 386 as hundreds, tens, and ones.", "3 hundreds, 8 tens, 6 ones", ["3 hundreds 8 tens 6 ones", "3 hundreds, 8 tens, and 6 ones"], "The digit 3 is in the hundreds place, 8 is in the tens place, and 6 is in the ones place."),
       () => textQuestion("List these numbers from smallest to largest: 41, 14, 34.", "14, 34, 41", ["14 34 41", "14,34,41"], "Compare tens first: 14 has 1 ten, 34 has 3 tens, and 41 has 4 tens."),
       () => choiceQuestion("Is 18 odd or even?", ["Odd", "Even"], "Even", "A number is even when it can be split into pairs with none left over. 18 ends in 8, so it is even."),
-      () => numericQuestion("How many sides does a rectangle have?", "4", 4, "A rectangle is a four-sided polygon with four right angles."),
+      () => numericQuestion("How many sides does a rectangle have?", "", 4, "A rectangle is a four-sided polygon with four right angles."),
       () => numericQuestion("Find the missing number.", "___ + 7 = 12", 5, "Use subtraction to undo addition: 12 - 7 = 5."),
       () => numericQuestion("Multiply.", "4 × 3", 12, "4 × 3 means 4 groups of 3: 3 + 3 + 3 + 3 = 12."),
       () => textQuestion("What fraction is one shaded part out of four equal parts?", "1/4", ["one fourth", "one-fourth", "1 over 4"], "The denominator counts all equal parts (4), and the numerator counts shaded parts (1)."),
-      () => numericQuestion("A student has 5 pencils and gets 6 more. How many pencils now?", "11", 11, "Add the starting amount and the new amount: 5 + 6 = 11."),
+      () => numericQuestion("A student has 5 pencils and gets 6 more. How many pencils now?", "", 11, "Add the starting amount and the new amount: 5 + 6 = 11."),
     ],
   },
   {
@@ -26,15 +26,15 @@ const LEVELS = [
     passText: "A solid score is about 70% or higher; review regrouping and multiplication facts if missed.",
     generators: [
       () => choiceQuestion("What does the 7 stand for in 7,482?", ["7", "70", "700", "7,000"], "7,000", "The 7 is in the thousands place, so its value is 7,000."),
-      () => numericQuestion("Write six hundred forty-two using digits.", "642", 642, "Six hundred is 600, forty is 40, and two is 2. 600 + 40 + 2 = 642."),
-      () => numericQuestion("Finish the expanded form: 500 + ___ + 9 = 579", "70", 70, "579 has 7 tens, and 7 tens are worth 70."),
+      () => numericQuestion("Write six hundred forty-two using digits.", "", 642, "Six hundred is 600, forty is 40, and two is 2. 600 + 40 + 2 = 642."),
+      () => numericQuestion("Finish the expanded form: 500 + ___ + 9 = 579", "", 70, "579 has 7 tens, and 7 tens are worth 70."),
       () => numericQuestion("Add using regrouping.", "248 + 376", 624, "Ones: 8 + 6 = 14, write 4 carry 1. Tens: 1 + 4 + 7 = 12, write 2 carry 1. Hundreds: 1 + 2 + 3 = 6."),
       () => numericQuestion("Subtract using regrouping.", "904 - 268", 636, "Regroup across the zero: 14 - 8 = 6 ones, 9 - 6 = 3 tens, and 8 - 2 = 6 hundreds."),
       () => numericQuestion("Multiply.", "7 × 8", 56, "Use a known fact: 7 × 8 = 56. You can also double 7 × 4 = 28 to get 56."),
       () => textQuestion("Order from greatest to least: 68, 82, 26.", "82, 68, 26", ["82 68 26", "82,68,26"], "Compare tens digits: 8 tens is greatest, then 6 tens, then 2 tens."),
       () => textQuestion("What fraction is 3 selected items out of 11 total items?", "3/11", ["3 over 11", "three elevenths"], "The selected amount is the numerator (3), and the total amount is the denominator (11)."),
       () => choiceQuestion("Which symbol makes this true? 967 ___ 679", ["<", ">", "="], ">", "Compare hundreds: 967 has 9 hundreds and 679 has 6 hundreds, so 967 is greater."),
-      () => numericQuestion("Find the next number in the pattern: 9, 12, 15, 18, ___", "21", 21, "Each term increases by 3, so 18 + 3 = 21."),
+      () => numericQuestion("Find the next number in the pattern: 9, 12, 15, 18, ___", "", 21, "Each term increases by 3, so 18 + 3 = 21."),
     ],
   },
   {
@@ -51,9 +51,9 @@ const LEVELS = [
       () => textQuestion("Simplify the fraction 6/8.", "3/4", ["3 over 4", "three fourths", "three-quarters"], "Divide numerator and denominator by their greatest common factor, 2: 6 ÷ 2 = 3 and 8 ÷ 2 = 4."),
       () => numericQuestion("Convert dollars to cents.", "$4.35 = ___ cents", 435, "Each dollar is 100 cents, so $4 is 400 cents. Add 35 cents for 435 cents."),
       () => textQuestion("Compare the decimals: 0.7 ___ 0.65", ">", ["greater", "is greater than"], "Write 0.7 as 0.70. Since 70 hundredths is greater than 65 hundredths, 0.7 > 0.65."),
-      () => numericQuestion("Find the perimeter of a rectangle with sides 8 cm and 5 cm.", "26", 26, "Perimeter adds all sides: 8 + 5 + 8 + 5 = 26 cm."),
-      () => numericQuestion("A box has 6 rows of 14 markers. How many markers are there?", "84", 84, "Rows of equal size call for multiplication: 6 × 14 = 84."),
-      () => numericQuestion("Round 4,681 to the nearest hundred.", "4700", 4700, "Look at the tens digit. In 4,681 the tens digit is 8, so round 4,600 up to 4,700."),
+      () => numericQuestion("Find the perimeter of a rectangle with sides 8 cm and 5 cm.", "", 26, "Perimeter adds all sides: 8 + 5 + 8 + 5 = 26 cm."),
+      () => numericQuestion("A box has 6 rows of 14 markers. How many markers are there?", "", 84, "Rows of equal size call for multiplication: 6 × 14 = 84."),
+      () => numericQuestion("Round 4,681 to the nearest hundred.", "", 4700, "Look at the tens digit. In 4,681 the tens digit is 8, so round 4,600 up to 4,700."),
     ],
   },
   {
@@ -66,12 +66,12 @@ const LEVELS = [
       () => numericQuestion("Divide.", "4,536 ÷ 6", 756, "Divide each place from left to right: 45 hundreds ÷ 6 = 7 hundreds remainder 3, bring down 3 to make 33 tens, then bring down 6 to finish 756."),
       () => textQuestion("Add: 3/4 + 2/3", "17/12", ["1 5/12", "1 and 5/12"], "Use a common denominator of 12. 3/4 = 9/12 and 2/3 = 8/12, so the sum is 17/12 or 1 5/12."),
       () => textQuestion("Subtract: 5.2 - 3.78", "1.42", ["1.42"], "Line up decimal points and write 5.20 - 3.78. Regroup to get 1.42."),
-      () => numericQuestion("Find 10% of 360.", "36", 36, "Ten percent is one tenth, so divide 360 by 10 to get 36."),
-      () => numericQuestion("Find the mean of 8, 10, and 12.", "10", 10, "Add the values to get 30, then divide by 3 values: 30 ÷ 3 = 10."),
-      () => numericQuestion("Find the area of a rectangle that is 12 ft by 9 ft.", "108", 108, "Rectangle area is length times width: 12 × 9 = 108 square feet."),
+      () => numericQuestion("Find 10% of 360.", "", 36, "Ten percent is one tenth, so divide 360 by 10 to get 36."),
+      () => numericQuestion("Find the mean of 8, 10, and 12.", "", 10, "Add the values to get 30, then divide by 3 values: 30 ÷ 3 = 10."),
+      () => numericQuestion("Find the area of a rectangle that is 12 ft by 9 ft.", "", 108, "Rectangle area is length times width: 12 × 9 = 108 square feet."),
       () => textQuestion("Simplify: 18/24", "3/4", ["3 over 4", "three fourths"], "Divide numerator and denominator by their greatest common factor, 6: 18/24 = 3/4."),
       () => textQuestion("Write 0.08 as a fraction.", "2/25", ["8/100", "8 over 100", "2 over 25"], "0.08 means 8 hundredths, or 8/100. Simplify by dividing by 4 to get 2/25."),
-      () => numericQuestion("A recipe uses 3 cups of flour per batch. How many cups for 7 batches?", "21", 21, "Multiply cups per batch by batches: 3 × 7 = 21."),
+      () => numericQuestion("A recipe uses 3 cups of flour per batch. How many cups for 7 batches?", "", 21, "Multiply cups per batch by batches: 3 × 7 = 21."),
       () => choiceQuestion("Which number is prime?", ["21", "27", "29", "33"], "29", "A prime number has exactly two factors, 1 and itself. 29 is not divisible by 2, 3, or 5."),
     ],
   },
@@ -85,13 +85,13 @@ const LEVELS = [
       () => numericQuestion("Evaluate.", "-8 - 5", -13, "Subtracting 5 from -8 moves 5 more units left on the number line, landing at -13."),
       () => textQuestion("Multiply: 2/5 × 3/4", "3/10", ["3 over 10"], "Multiply numerators and denominators: 2 × 3 = 6 and 5 × 4 = 20. Simplify 6/20 to 3/10."),
       () => textQuestion("Divide: 1/2 ÷ 3/8", "4/3", ["1 1/3", "1 and 1/3"], "Keep 1/2, change division to multiplication, and flip 3/8 to 8/3. Then 1/2 × 8/3 = 8/6 = 4/3."),
-      () => numericQuestion("A $45 item is discounted 20%. What is the discount amount?", "9", 9, "20% is 0.20. 0.20 × 45 = 9."),
+      () => numericQuestion("A $45 item is discounted 20%. What is the discount amount?", "", 9, "20% is 0.20. 0.20 × 45 = 9."),
       () => textQuestion("Solve: x - 14 = 31", "45", ["x = 45"], "Add 14 to both sides: x = 31 + 14 = 45."),
       () => textQuestion("Simplify: 6a - 2a + 9", "4a + 9", ["4a+9"], "Combine like terms 6a and -2a to get 4a. The constant 9 stays separate."),
-      () => numericQuestion("Find the circumference of a circle with diameter 10 using π = 3.14.", "31.4", 31.4, "Circumference is π times diameter: 3.14 × 10 = 31.4."),
-      () => numericQuestion("If 4 notebooks cost $12, what is the unit price?", "3", 3, "Divide total cost by number of notebooks: 12 ÷ 4 = 3 dollars each."),
+      () => numericQuestion("Find the circumference of a circle with diameter 10 using π = 3.14.", "", 31.4, "Circumference is π times diameter: 3.14 × 10 = 31.4."),
+      () => numericQuestion("If 4 notebooks cost $12, what is the unit price?", "", 3, "Divide total cost by number of notebooks: 12 ÷ 4 = 3 dollars each."),
       () => choiceQuestion("Which is the greatest?", ["0.6", "2/3", "58%", "0.61"], "2/3", "Convert to decimals: 2/3 is about 0.667, which is greater than 0.61, 0.60, and 0.58."),
-      () => numericQuestion("Find the volume of a rectangular prism: 5 by 4 by 3.", "60", 60, "Volume is length × width × height: 5 × 4 × 3 = 60 cubic units."),
+      () => numericQuestion("Find the volume of a rectangular prism: 5 by 4 by 3.", "", 60, "Volume is length × width × height: 5 × 4 × 3 = 60 cubic units."),
     ],
   },
   {
@@ -107,9 +107,9 @@ const LEVELS = [
       () => textQuestion("Solve for x: x + 9 = 23", "14", ["x = 14"], "Subtract 9 from both sides: x = 23 - 9 = 14."),
       () => textQuestion("Solve for y: 4y = 36", "9", ["y = 9"], "Divide both sides by 4: y = 36 ÷ 4 = 9."),
       () => textQuestion("Write 0.35 as a simplified fraction.", "7/20", ["7 over 20", "seven twentieths"], "0.35 = 35/100. Divide numerator and denominator by 5 to get 7/20."),
-      () => numericQuestion("Find 25% of 80.", "20", 20, "25% is one fourth. One fourth of 80 is 80 ÷ 4 = 20."),
+      () => numericQuestion("Find 25% of 80.", "", 20, "25% is one fourth. One fourth of 80 is 80 ÷ 4 = 20."),
       () => textQuestion("A ratio is 3:5. If the first quantity is 12, what is the second?", "20", ["20"], "The scale factor from 3 to 12 is 4, so multiply 5 by 4 to get 20."),
-      () => numericQuestion("Find the area of a triangle with base 10 and height 6.", "30", 30, "Triangle area is one half times base times height: (10 × 6) ÷ 2 = 30."),
+      () => numericQuestion("Find the area of a triangle with base 10 and height 6.", "", 30, "Triangle area is one half times base times height: (10 × 6) ÷ 2 = 30."),
       () => choiceQuestion("Which is equivalent to 5a + 2a?", ["7a", "10a", "7a²", "5a + 2"], "7a", "Like terms have the same variable part. Add the coefficients: 5 + 2 = 7, so 7a."),
     ],
   },
@@ -139,16 +139,16 @@ const LEVELS = [
     directions: "Algebra review, angle relationships, perimeter, area, volume, coordinate geometry, and reasoning.",
     passText: "Geometry readiness requires accurate equation solving and comfort with formulas.",
     generators: [
-      () => numericQuestion("Find the missing angle in a triangle with angles 42° and 68°.", "70", 70, "Triangle angles sum to 180°. 180 - 42 - 68 = 70."),
+      () => numericQuestion("Find the missing angle in a triangle with angles 42° and 68°.", "", 70, "Triangle angles sum to 180°. 180 - 42 - 68 = 70."),
       () => choiceQuestion("Parallel lines cut by a transversal create equal ___ angles.", ["corresponding", "random", "supplementary only", "vertical only"], "corresponding", "Corresponding angles are congruent when the lines are parallel."),
-      () => numericQuestion("Find the area of a trapezoid with bases 6 and 10 and height 5.", "40", 40, "Trapezoid area is one half the sum of the bases times height: (6 + 10) × 5 ÷ 2 = 40."),
-      () => numericQuestion("Use the Pythagorean theorem: legs 6 and 8, hypotenuse?", "10", 10, "6² + 8² = 36 + 64 = 100, and the square root of 100 is 10."),
+      () => numericQuestion("Find the area of a trapezoid with bases 6 and 10 and height 5.", "", 40, "Trapezoid area is one half the sum of the bases times height: (6 + 10) × 5 ÷ 2 = 40."),
+      () => numericQuestion("Use the Pythagorean theorem: legs 6 and 8, hypotenuse?", "", 10, "6² + 8² = 36 + 64 = 100, and the square root of 100 is 10."),
       () => textQuestion("Find the midpoint of (2, 4) and (8, 10).", "(5, 7)", ["5,7", "(5,7)"], "Average the x-values and y-values: (2 + 8)/2 = 5 and (4 + 10)/2 = 7."),
       () => textQuestion("Solve: 3x + 2 = 20", "6", ["x = 6"], "Subtract 2 to get 3x = 18, then divide by 3."),
-      () => numericQuestion("Find the perimeter of a regular hexagon with side length 9.", "54", 54, "A hexagon has 6 sides. 6 × 9 = 54."),
+      () => numericQuestion("Find the perimeter of a regular hexagon with side length 9.", "", 54, "A hexagon has 6 sides. 6 × 9 = 54."),
       () => choiceQuestion("A 90° angle is called", ["acute", "right", "obtuse", "straight"], "right", "A right angle measures exactly 90°."),
-      () => numericQuestion("Find the slope through (1, 2) and (5, 14).", "3", 3, "Slope is change in y over change in x: (14 - 2)/(5 - 1) = 12/4 = 3."),
-      () => numericQuestion("Find the volume of a cylinder with r = 3, h = 5, using π = 3.14.", "141.3", 141.3, "Cylinder volume is πr²h: 3.14 × 3² × 5 = 3.14 × 45 = 141.3."),
+      () => numericQuestion("Find the slope through (1, 2) and (5, 14).", "", 3, "Slope is change in y over change in x: (14 - 2)/(5 - 1) = 12/4 = 3."),
+      () => numericQuestion("Find the volume of a cylinder with r = 3, h = 5, using π = 3.14.", "", 141.3, "Cylinder volume is πr²h: 3.14 × 3² × 5 = 3.14 × 45 = 141.3."),
     ],
   },
   {
@@ -166,7 +166,7 @@ const LEVELS = [
       () => textQuestion("Simplify: a³ · a⁵", "a^8", ["a⁸", "a8"], "When multiplying powers with the same base, add exponents: 3 + 5 = 8."),
       () => textQuestion("Find f(4) when f(x) = 2x² - 1.", "31", ["31"], "Substitute 4: 2(4²) - 1 = 2(16) - 1 = 31."),
       () => textQuestion("Solve: |x| = 12", "±12", ["12 and -12", "+/-12", "-12, 12"], "Absolute value is distance from 0, so both 12 and -12 are 12 units away."),
-      () => numericQuestion("What is the slope of 6x + 2y = 10?", "-3", -3, "Solve for y: 2y = -6x + 10, so y = -3x + 5. The slope is -3."),
+      () => numericQuestion("What is the slope of 6x + 2y = 10?", "", -3, "Solve for y: 2y = -6x + 10, so y = -3x + 5. The slope is -3."),
       () => textQuestion("Simplify: (x²y)(3xy³)", "3x^3y^4", ["3x³y⁴", "3x^3 y^4"], "Multiply coefficients and add exponents for like bases: x²·x = x³ and y·y³ = y⁴."),
     ],
   },
@@ -178,7 +178,7 @@ const LEVELS = [
     passText: "Students should be fluent with Algebra 2 before beginning Pre-Calculus.",
     generators: [
       () => textQuestion("Find the inverse of f(x) = 2x + 5.", "(x - 5)/2", ["f^-1(x)=(x-5)/2", "(x-5)/2"], "Swap x and y, then solve: x = 2y + 5, so y = (x - 5)/2."),
-      () => numericQuestion("Evaluate log₂(32).", "5", 5, "A logarithm asks for the exponent. 2⁵ = 32, so log₂(32) = 5."),
+      () => numericQuestion("Evaluate log₂(32).", "", 5, "A logarithm asks for the exponent. 2⁵ = 32, so log₂(32) = 5."),
       () => textQuestion("Solve: e^(2x) = e^6", "3", ["x = 3"], "With the same positive base e, set exponents equal: 2x = 6, so x = 3."),
       () => choiceQuestion("sin(30°) equals", ["1/2", "√2/2", "√3/2", "1"], "1/2", "On the unit circle, the y-coordinate at 30° is 1/2."),
       () => textQuestion("Simplify: (x³)²", "x^6", ["x⁶", "x6"], "A power raised to a power multiplies exponents: 3 × 2 = 6."),
@@ -186,7 +186,7 @@ const LEVELS = [
       () => textQuestion("Complete the square: x² + 8x + ___", "16", ["16"], "Take half of 8, which is 4, then square it: 4² = 16."),
       () => textQuestion("If cos θ = adjacent/hypotenuse, find cos θ for adjacent 12 and hypotenuse 13.", "12/13", ["12 over 13"], "Cosine is adjacent divided by hypotenuse, so cos θ = 12/13."),
       () => textQuestion("Find the center of (x - 2)² + (y + 3)² = 25.", "(2, -3)", ["2,-3", "(2,-3)"], "Circle standard form is (x - h)² + (y - k)² = r². Here h = 2 and k = -3."),
-      () => numericQuestion("Evaluate the arithmetic-series sum 2 + 4 + 6 + 8 + 10.", "30", 30, "Add directly or pair terms: 2 + 10 = 12, 4 + 8 = 12, plus 6 gives 30."),
+      () => numericQuestion("Evaluate the arithmetic-series sum 2 + 4 + 6 + 8 + 10.", "", 30, "Add directly or pair terms: 2 + 10 = 12, 4 + 8 = 12, plus 6 gives 30."),
     ],
   },
 
@@ -375,6 +375,7 @@ function isAnswerCorrect(question, answer) {
 
 function normalizeNumber(value) {
   const cleaned = String(value).replace(/[$,\s]/g, "");
+  if (!cleaned) return "";
   const number = Number(cleaned);
   return Number.isFinite(number) ? String(number) : normalizeText(value);
 }
@@ -393,15 +394,20 @@ function makeId() {
 }
 
 function numericQuestion(prompt, display, answer, explanation) {
+  const answerText = String(answer);
   return {
     id: makeId(),
     type: "numeric",
     prompt,
-    display,
-    answer: String(answer),
+    display: isDisplayAnswer(display, answerText) ? "" : display,
+    answer: answerText,
     explanation,
     shortExplanation: explanation,
   };
+}
+
+function isDisplayAnswer(display, answer) {
+  return normalizeNumber(display) === normalizeNumber(answer);
 }
 
 function textQuestion(prompt, answer, accepted, explanation) {
