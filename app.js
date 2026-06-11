@@ -938,7 +938,7 @@ function updateFeedback(question, answer, isCorrect) {
 
 function getAnswer(question) {
   const selected = worksheetForm.querySelector(`[name="answer-${question.id}"]:checked`);
-  if (selected) return selected.value;
+  if (question.type === "choice") return selected ? selected.value : "";
   const input = worksheetForm.querySelector(`[name="answer-${question.id}"]`);
   return input ? input.value.trim() : "";
 }
