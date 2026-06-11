@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Math Placement Worksheet Generator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__content">
+        <p class="eyebrow">Teaching Textbooks-inspired practice</p>
+        <h1>Placement Worksheet Generator</h1>
+        <p>
+          Create printable, auto-graded worksheets aligned to the topic mix and scoring style of the
+          Teaching Textbooks placement tests. These are original practice questions, not copies of the
+          official tests.
+        </p>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card controls" aria-labelledby="controls-title">
+        <h2 id="controls-title">Build a worksheet</h2>
+        <form id="generator-form" class="generator-form">
+          <label>
+            Student name
+            <input id="student-name" type="text" placeholder="Optional" autocomplete="name" />
+          </label>
+
+          <label>
+            Placement level
+            <select id="level-select"></select>
+          </label>
+
+          <label>
+            Number of questions
+            <select id="question-count">
+              <option value="5">5 quick check</option>
+              <option value="8">8 standard</option>
+              <option value="10" selected>10 full worksheet</option>
+            </select>
+          </label>
+
+          <button type="submit" class="button button--primary">Generate worksheet</button>
+        </form>
+
+        <div class="source-note">
+          <h3>About this tool</h3>
+          <p>
+            The official placement page recommends independent work without a calculator and explains
+            that placement guidelines are rough. Use this worksheet as practice or screening support;
+            verify final placement with the official test and your own judgment.
+          </p>
+          <a href="https://www.teachingtextbooks.com/placement" target="_blank" rel="noreferrer">
+            Open official placement tests
+          </a>
+        </div>
+      </section>
+
+      <section class="card worksheet-shell" aria-live="polite">
+        <div id="empty-state" class="empty-state">
+          <h2>Choose a level to begin</h2>
+          <p>
+            After you generate a worksheet, students can type answers here. Submit to grade, view
+            explanations for missed problems, and download a printable report.
+          </p>
+        </div>
+
+        <form id="worksheet-form" class="worksheet hidden">
+          <div class="worksheet__header">
+            <div>
+              <p class="eyebrow" id="worksheet-meta">Worksheet</p>
+              <h2 id="worksheet-title"></h2>
+              <p id="worksheet-directions"></p>
+            </div>
+            <div class="score-card" id="score-card" hidden></div>
+          </div>
+
+          <div id="questions" class="questions"></div>
+
+          <div class="actions">
+            <button type="submit" class="button button--primary">Submit and grade</button>
+            <button type="button" id="reset-answers" class="button">Clear answers</button>
+            <button type="button" id="download-report" class="button" disabled>Download graded worksheet</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <template id="question-template">
+      <fieldset class="question-card">
+        <legend></legend>
+        <p class="question-card__prompt"></p>
+        <div class="question-card__body"></div>
+        <p class="feedback" hidden></p>
+      </fieldset>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
