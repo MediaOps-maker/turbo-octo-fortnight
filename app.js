@@ -206,6 +206,7 @@ const directionsEl = document.querySelector("#worksheet-directions");
 const scoreCard = document.querySelector("#score-card");
 const resetButton = document.querySelector("#reset-answers");
 const downloadButton = document.querySelector("#download-report");
+const printButton = document.querySelector("#print-report");
 
 LEVELS.forEach((level) => {
   const option = document.createElement("option");
@@ -231,6 +232,7 @@ resetButton.addEventListener("click", () => {
   lastResults = null;
   scoreCard.hidden = true;
   downloadButton.disabled = true;
+  printButton.disabled = true;
   document.querySelectorAll(".question-card").forEach((card) => {
     card.classList.remove("correct", "incorrect");
     const feedback = card.querySelector(".feedback");
@@ -242,11 +244,12 @@ resetButton.addEventListener("click", () => {
 
 downloadButton.addEventListener("click", () => {
   if (!lastResults) return;
-  const reportWindow = window.open("", "_blank");
-  reportWindow.document.write(buildReportHtml(lastResults));
-  reportWindow.document.close();
-  reportWindow.focus();
-  reportWindow.print();
+  downloadReport(lastResults);
+});
+
+printButton.addEventListener("click", () => {
+  if (!lastResults) return;
+  openPrintableReport(lastResults);
 });
 
 function generateWorksheet(level, count) {
@@ -260,6 +263,7 @@ function generateWorksheet(level, count) {
   directionsEl.textContent = `${level.directions} ${level.passText}`;
   scoreCard.hidden = true;
   downloadButton.disabled = true;
+  printButton.disabled = true;
   emptyState.classList.add("hidden");
   worksheetForm.classList.remove("hidden");
   renderQuestions(currentWorksheet);
@@ -337,6 +341,7 @@ function gradeWorksheet() {
   scoreCard.hidden = false;
   scoreCard.innerHTML = `<span>Score</span><strong>${correct}/${currentWorksheet.length}</strong><span>${percent}%</span>`;
   downloadButton.disabled = false;
+  printButton.disabled = false;
   scoreCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
@@ -421,6 +426,34 @@ function choiceQuestion(prompt, choices, answer, explanation) {
     explanation,
     shortExplanation: explanation,
   };
+}
+
+function downloadReport(report) {
+  const blob = new Blob([buildReportHtml(report)], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${slugify(report.student)}-${slugify(report.title)}-graded-worksheet.html`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function openPrintableReport(report) {
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) return;
+  reportWindow.document.write(buildReportHtml(report));
+  reportWindow.document.close();
+  reportWindow.focus();
+  reportWindow.print();
+}
+
+function slugify(value) {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "") || "worksheet";
 }
 
 function buildReportHtml(report) {
