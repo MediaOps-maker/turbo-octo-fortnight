@@ -42,6 +42,14 @@
             </select>
           </label>
 
+          <label>
+            Question mode
+            <select id="question-mode">
+              <option value="ordered" selected>Original placement-style order</option>
+              <option value="random">Unique random questions</option>
+            </select>
+          </label>
+
           <button type="submit" class="button button--primary">Generate worksheet</button>
         </form>
 
@@ -50,7 +58,9 @@
           <p>
             The official placement page recommends independent work without a calculator and explains
             that placement guidelines are rough. Use this worksheet as practice or screening support;
-            verify final placement with the official test and your own judgment.
+            verify final placement with the official test and your own judgment. The official page
+            lists placement tests for Math 3 through Pre-Calculus and says its pass/fail
+            guidelines are intentionally rough.
           </p>
           <a href="https://www.teachingtextbooks.com/placement" target="_blank" rel="noreferrer">
             Open official placement tests
@@ -62,8 +72,9 @@
         <div id="empty-state" class="empty-state">
           <h2>Choose a level to begin</h2>
           <p>
-            After you generate a worksheet, students can type answers here. Submit to grade, view
-            explanations for missed problems, and download a printable report.
+            After you generate a worksheet, students can type answers here. Choose unique random
+            questions for a fresh version of the selected placement level, then submit to grade,
+            view explanations for missed problems, and download a printable report.
           </p>
         </div>
 
@@ -83,6 +94,7 @@
             <button type="submit" class="button button--primary">Submit and grade</button>
             <button type="button" id="reset-answers" class="button">Clear answers</button>
             <button type="button" id="download-report" class="button" disabled>Download graded worksheet</button>
+            <button type="button" id="print-report" class="button" disabled>Print report</button>
           </div>
         </form>
       </section>
