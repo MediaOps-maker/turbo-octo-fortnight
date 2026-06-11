@@ -255,7 +255,9 @@ printButton.addEventListener("click", () => {
 function generateWorksheet(level, count) {
   const student = document.querySelector("#student-name").value.trim();
   const repeatedGenerators = Array.from({ length: count }, (_, index) => level.generators[index % level.generators.length]);
-  currentWorksheet = repeatedGenerators.map((makeQuestion, index) => ({ ...makeQuestion(), number: index + 1 }));
+  currentWorksheet = repeatedGenerators.map((makeQuestion, index) =>
+    sanitizeQuestionForDisplay({ ...makeQuestion(), number: index + 1 }),
+  );
   lastResults = null;
 
   titleEl.textContent = level.label;
@@ -394,20 +396,38 @@ function makeId() {
 }
 
 function numericQuestion(prompt, display, answer, explanation) {
-  const answerText = String(answer);
   return {
     id: makeId(),
     type: "numeric",
     prompt,
-    display: isDisplayAnswer(display, answerText) ? "" : display,
-    answer: answerText,
+    display,
+    answer: String(answer),
     explanation,
     shortExplanation: explanation,
   };
 }
 
-function isDisplayAnswer(display, answer) {
-  return normalizeNumber(display) === normalizeNumber(answer);
+function sanitizeQuestionForDisplay(question) {
+  if (!question.display || !isDisplayAnswer(question.display, question)) return question;
+  return { ...question, display: "" };
+}
+
+function isDisplayAnswer(display, question) {
+  const normalizedDisplay = normalizeAnswerLikeValue(display);
+  return getAnswerLikeValues(question).some((answer) => normalizeAnswerLikeValue(answer) === normalizedDisplay);
+}
+
+function getAnswerLikeValues(question) {
+  return [question.answer, ...(question.accepted || [])].filter((answer) => answer !== undefined && answer !== null);
+}
+
+function normalizeAnswerLikeValue(value) {
+  return questionDisplayNumber(value) || normalizeText(value);
+}
+
+function questionDisplayNumber(value) {
+  const normalized = normalizeNumber(value);
+  return normalized && /^-?\d+(\.\d+)?$/.test(normalized) ? normalized : "";
 }
 
 function textQuestion(prompt, answer, accepted, explanation) {
