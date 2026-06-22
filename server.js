@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseCsv, stringifyCsv } from './lib/csv.js';
+import { applyUpdatesToRow, findRowIndexByItemCode, getPresentEditableFields, rowToObject, validateUpdates } from './lib/product-updates.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -11,7 +12,6 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const RECORDS_DIR = path.join(__dirname, 'records');
 const SUBMISSIONS_DIR = path.join(__dirname, 'submissions');
 const UPDATED_ITEMCODES_FILE = path.join(RECORDS_DIR, 'updated-itemcodes.json');
-const ITEM_CODE_COLUMN = 'Item Code';
 export const EDITABLE_FIELDS = [
   'Press Title',
   'Press Title - Sort',
@@ -59,18 +59,6 @@ async function writeUpdatedItemCodes(updatedItemCodes) {
   );
 }
 
-function findRowIndexByItemCode(rows, headers, itemCode) {
-  const itemCodeIndex = headers.indexOf(ITEM_CODE_COLUMN);
-  if (itemCodeIndex === -1) {
-    throw new Error(`Missing required "${ITEM_CODE_COLUMN}" column in CSV.`);
-  }
-  return rows.findIndex((row, index) => index > 0 && row[itemCodeIndex] === itemCode);
-}
-
-function rowToObject(headers, row) {
-  return Object.fromEntries(headers.map((header, index) => [header, row[index] ?? '']));
-}
-
 function jsonResponse(res, statusCode, payload, extraHeaders = {}) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -104,10 +92,6 @@ function sanitizeFilename(value) {
 
 function pickFields(product, fields) {
   return Object.fromEntries(fields.map((field) => [field, product[field] ?? '']));
-}
-
-function getPresentEditableFields(headers) {
-  return EDITABLE_FIELDS.filter((field) => headers.includes(field));
 }
 
 function buildSchemaDocuments({ itemCode, submittedAt, submittedBy, notes, originalProduct, updatedProduct }) {
@@ -144,39 +128,12 @@ async function getProduct(req, res, itemCode) {
     locked: updatedItemCodes.has(normalizedItemCode),
     headers,
     product: rowToObject(headers, rows[rowIndex]),
-    updateableFields: getPresentEditableFields(headers),
+    updateableFields: getPresentEditableFields(headers, EDITABLE_FIELDS),
     metadataSchema: METADATA_SCHEMA,
     parentChildSchema: PARENT_CHILD_SCHEMA,
   });
 }
 
-function validateUpdates(updates, presentEditableFields) {
-  if (typeof updates !== 'object' || Array.isArray(updates)) {
-    return 'Updates must be an object keyed by CSV column name.';
-  }
-
-  const invalidFields = Object.keys(updates).filter((field) => !presentEditableFields.includes(field));
-  if (invalidFields.length > 0) {
-    return `Only these fields can be updated: ${presentEditableFields.join(', ')}. Invalid fields: ${invalidFields.join(', ')}.`;
-  }
-
-  return '';
-}
-
-function applyUpdatesToRow({ headers, row, updates, presentEditableFields }) {
-  const originalProduct = rowToObject(headers, row);
-  const updatedProduct = { ...originalProduct };
-
-  for (const field of presentEditableFields) {
-    if (!Object.prototype.hasOwnProperty.call(updates, field)) continue;
-    const columnIndex = headers.indexOf(field);
-    const normalizedValue = updates[field] == null ? '' : String(updates[field]);
-    row[columnIndex] = normalizedValue;
-    updatedProduct[field] = normalizedValue;
-  }
-
-  return { originalProduct, updatedProduct };
-}
 
 function buildSubmissionRecord({ itemCode, timestamp, submittedBy, notes, originalProduct, updatedProduct }) {
   const schemaDocuments = buildSchemaDocuments({
@@ -217,7 +174,7 @@ async function submitUpdate(req, res) {
   }
 
   const { headers, rows } = await readCsvTable();
-  const presentEditableFields = getPresentEditableFields(headers);
+  const presentEditableFields = getPresentEditableFields(headers, EDITABLE_FIELDS);
   const validationError = validateUpdates(updates, presentEditableFields);
   if (validationError) {
     return errorResponse(res, 400, validationError);
@@ -291,7 +248,7 @@ async function submitBatchUpdate(req, res) {
   }
 
   const { headers, rows } = await readCsvTable();
-  const presentEditableFields = getPresentEditableFields(headers);
+  const presentEditableFields = getPresentEditableFields(headers, EDITABLE_FIELDS);
   for (const item of normalizedItems) {
     const validationError = validateUpdates(item.updates, presentEditableFields);
     if (validationError) {
