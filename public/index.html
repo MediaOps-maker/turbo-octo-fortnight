@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Product Metadata Batch Update Form</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Neulis Sans", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.45;
+        --bg: #050b15;
+        --surface: #0d1726;
+        --surface-2: #132238;
+        --surface-3: #1b2d47;
+        --text: #f8fbff;
+        --muted: #a9b8cc;
+        --border: #2d405f;
+        --blue: #00a3ff;
+        --blue-2: #0072ce;
+        --gold: #ffc72c;
+        --success: #47d17c;
+        --error: #ff6f8a;
+      }
+      * { box-sizing: border-box; }
+      body {
+        background:
+          radial-gradient(circle at 74% 12%, rgb(0 163 255 / 20%), transparent 26rem),
+          linear-gradient(180deg, #020611 0%, var(--bg) 38%, #07111f 100%);
+        color: var(--text);
+        margin: 0;
+        min-height: 100vh;
+      }
+      body::before {
+        background: linear-gradient(180deg, rgb(255 255 255 / 4%), transparent 22rem);
+        content: "";
+        inset: 0;
+        pointer-events: none;
+        position: fixed;
+      }
+      .site-header {
+        align-items: center;
+        background: rgb(3 8 17 / 88%);
+        backdrop-filter: blur(18px);
+        border-bottom: 1px solid rgb(255 255 255 / 8%);
+        display: flex;
+        gap: 2rem;
+        justify-content: space-between;
+        padding: 1rem clamp(1rem, 4vw, 3rem);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .brand {
+        color: #fff;
+        font-size: 1.7rem;
+        font-weight: 950;
+        letter-spacing: -0.08em;
+        text-decoration: none;
+      }
+      .brand span { color: var(--blue); }
+      .site-nav {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: clamp(0.8rem, 2vw, 1.6rem);
+      }
+      .site-nav a, .signin {
+        color: var(--muted);
+        font-size: 0.9rem;
+        font-weight: 850;
+        letter-spacing: 0.02em;
+        text-decoration: none;
+        text-transform: lowercase;
+      }
+      .signin { color: #fff; }
+      main {
+        margin: 0 auto;
+        max-width: 1240px;
+        padding: 1.5rem clamp(1rem, 4vw, 3rem) 4rem;
+        position: relative;
+      }
+      .app-shell { display: grid; gap: 1.5rem; }
+      .panel {
+        background: linear-gradient(180deg, rgb(19 34 56 / 96%), rgb(10 19 34 / 98%));
+        border: 1px solid rgb(255 255 255 / 10%);
+        border-radius: 22px;
+        box-shadow: 0 24px 60px rgb(0 0 0 / 30%);
+        overflow: hidden;
+        padding: 1.5rem;
+      }
+      .hero-panel {
+        background:
+          linear-gradient(90deg, rgb(2 6 17 / 94%) 0%, rgb(5 12 24 / 80%) 46%, rgb(5 12 24 / 30%) 100%),
+          radial-gradient(circle at 75% 38%, rgb(0 163 255 / 55%), transparent 22rem),
+          linear-gradient(135deg, #101d31 0%, #213d62 55%, #0a1423 100%);
+        min-height: 520px;
+        padding: 0;
+        position: relative;
+      }
+      .hero-panel::after {
+        background:
+          linear-gradient(120deg, transparent 0 58%, rgb(255 255 255 / 7%) 58% 59%, transparent 59% 100%),
+          radial-gradient(circle at 82% 28%, rgb(255 199 44 / 22%), transparent 9rem);
+        content: "";
+        inset: 0;
+        pointer-events: none;
+        position: absolute;
+      }
+      .hero-grid {
+        align-items: end;
+        display: grid;
+        gap: 2rem;
+        grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+        min-height: 520px;
+        padding: clamp(1.5rem, 4vw, 3rem);
+        position: relative;
+        z-index: 1;
+      }
+      .brand-kicker {
+        color: var(--muted);
+        font-size: 0.82rem;
+        font-weight: 950;
+        letter-spacing: 0.16em;
+        margin: 0 0 1rem;
+        text-transform: uppercase;
+      }
+      h1, h2, h3 { line-height: 1.05; margin-top: 0; }
+      h1 {
+        color: #fff;
+        font-size: clamp(3rem, 8vw, 7.6rem);
+        letter-spacing: -0.08em;
+        margin: 0 0 1rem;
+        max-width: 9.5ch;
+        text-transform: lowercase;
+      }
+      h2 {
+        color: #fff;
+        font-size: clamp(1.45rem, 3vw, 2.35rem);
+        letter-spacing: -0.04em;
+      }
+      h3 { color: #fff; letter-spacing: -0.02em; margin-bottom: 0.75rem; }
+      p { color: var(--muted); }
+      .hero-panel p { color: #dbe8f6; font-size: 1.08rem; max-width: 66ch; }
+      .hero-card {
+        align-self: center;
+        background: rgb(5 12 24 / 66%);
+        border: 1px solid rgb(255 255 255 / 14%);
+        border-radius: 24px;
+        display: grid;
+        gap: 0.75rem;
+        padding: 1rem;
+      }
+      .status-pill {
+        align-items: center;
+        background: rgb(255 255 255 / 8%);
+        border: 1px solid rgb(255 255 255 / 10%);
+        border-radius: 14px;
+        color: #fff;
+        display: flex;
+        font-size: 0.9rem;
+        font-weight: 850;
+        justify-content: space-between;
+        padding: 0.85rem 1rem;
+      }
+      .status-pill span:last-child { color: var(--blue); font-weight: 950; }
+      label {
+        color: #eaf4ff;
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 950;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.45rem;
+        text-transform: uppercase;
+      }
+      input, textarea, button { border-radius: 12px; box-sizing: border-box; font: inherit; }
+      input, textarea {
+        background: rgb(3 8 17 / 86%);
+        border: 1px solid var(--border);
+        color: #fff;
+        padding: 0.9rem 1rem;
+        transition: border-color 160ms ease, box-shadow 160ms ease;
+        width: 100%;
+      }
+      input::placeholder, textarea::placeholder { color: #667994; }
+      input:focus, textarea:focus {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 4px rgb(0 163 255 / 16%);
+        outline: 0;
+      }
+      textarea { min-height: 6rem; resize: vertical; }
+      button {
+        background: #fff;
+        border: 0;
+        box-shadow: 0 14px 30px rgb(0 0 0 / 22%);
+        color: #07111f;
+        cursor: pointer;
+        font-weight: 950;
+        padding: 0.95rem 1.2rem;
+        transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+      }
+      button:hover:not(:disabled), button:focus-visible:not(:disabled) {
+        background: #eaf6ff;
+        transform: translateY(-1px);
+      }
+      button.secondary {
+        background: var(--blue);
+        color: #001324;
+      }
+      button.ghost {
+        background: transparent;
+        border: 1px solid var(--border);
+        box-shadow: none;
+        color: #fff;
+      }
+      button:disabled {
+        background: #3a4a61;
+        box-shadow: none;
+        color: #9dafc4;
+        cursor: not-allowed;
+      }
+      code {
+        background: rgb(0 163 255 / 14%);
+        border-radius: 8px;
+        color: #c8edff;
+        padding: 0.1rem 0.35rem;
+      }
+      .lookup {
+        align-items: end;
+        background: rgb(3 8 17 / 70%);
+        border: 1px solid rgb(255 255 255 / 12%);
+        border-radius: 18px;
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: 1fr auto;
+        margin-top: 1.5rem;
+        padding: 1rem;
+      }
+      .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+      .batch-layout { display: grid; gap: 1rem; grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.5fr); }
+      .item-list { display: grid; gap: 0.75rem; }
+      .item-card {
+        background: #101c2e;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: none;
+        color: #fff;
+        cursor: pointer;
+        padding: 1rem;
+        text-align: left;
+        width: 100%;
+      }
+      .item-card:hover:not(:disabled), .item-card:focus-visible, .item-card.active {
+        background: #101c2e;
+        color: #fff;
+        transform: none;
+      }
+      .item-card:focus-visible, .item-card.active {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 4px rgb(0 163 255 / 24%);
+        outline: 0;
+      }
+      .item-card.complete { border-color: rgb(71 209 124 / 70%); }
+      .item-card.locked { border-color: rgb(255 111 138 / 70%); opacity: 0.78; }
+      .item-card:hover .completion-badge, .item-card:focus-visible .completion-badge, .item-card.active .completion-badge {
+        background: rgb(0 163 255 / 20%);
+        color: #d7f3ff;
+      }
+      .item-card:hover .item-meta span, .item-card:focus-visible .item-meta span, .item-card.active .item-meta span {
+        background: rgb(0 163 255 / 16%);
+        border-color: rgb(0 163 255 / 28%);
+        color: #d7f3ff;
+      }
+      .item-title { align-items: center; display: flex; font-weight: 950; gap: 0.75rem; justify-content: space-between; }
+      .item-meta, .related-meta {
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 1.05rem;
+        gap: 1.15rem;
+        margin-top: 1rem;
+      }
+      .related-meta {
+        font-size: 1.16rem;
+        gap: 1.25rem;
+        margin: 1rem 0 1.25rem;
+      }
+      .related-meta span, .item-meta span {
+        background: rgb(0 163 255 / 12%);
+        border: 1px solid rgb(0 163 255 / 20%);
+        border-radius: 999px;
+        color: #d8f3ff;
+        font-weight: 850;
+        padding: 0.5rem 0.85rem;
+      }
+      .related-meta span {
+        padding: 0.65rem 1rem;
+      }
+      .completion-badge, .section-badge {
+        background: rgb(0 163 255 / 14%);
+        border-radius: 999px;
+        color: #bfeaff;
+        flex: 0 0 auto;
+        font-size: 0.72rem;
+        font-weight: 950;
+        letter-spacing: 0.08em;
+        padding: 0.45rem 0.75rem;
+        text-transform: uppercase;
+      }
+      .completion-badge.complete { background: rgb(71 209 124 / 16%); color: var(--success); }
+      .completion-badge.locked { background: rgb(255 111 138 / 16%); color: var(--error); }
+      .field-card {
+        background: #101c2e;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1rem;
+      }
+      .current-value {
+        background: #07111f;
+        border-left: 4px solid var(--blue);
+        border-radius: 10px;
+        color: #c9d8ea;
+        margin: 0.25rem 0 0.75rem;
+        padding: 0.75rem;
+        white-space: pre-wrap;
+      }
+      .message { border-radius: 14px; font-weight: 750; margin-top: 1rem; padding: 1rem; }
+      .message.error { background: rgb(255 111 138 / 12%); border: 1px solid rgb(255 111 138 / 30%); color: #ffc7d1; }
+      .message.success { background: rgb(71 209 124 / 12%); border: 1px solid rgb(71 209 124 / 30%); color: #bdf2cf; }
+      .message.info { background: rgb(0 163 255 / 12%); border: 1px solid rgb(0 163 255 / 30%); color: #c8edff; }
+      .small { color: var(--muted); font-size: 0.94rem; }
+      .section-header { align-items: start; display: flex; gap: 1rem; justify-content: space-between; }
+      .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; }
+      .hidden { display: none; }
+      @media (max-width: 860px) {
+        .site-header { align-items: flex-start; flex-direction: column; gap: 0.75rem; }
+        main { padding: 1rem; }
+        .hero-grid, .lookup, .batch-layout { grid-template-columns: 1fr; }
+        .hero-card { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#" aria-label="BYUtv metadata tools">byu<span>tv</span></a>
+      <nav class="site-nav" aria-label="BYUtv-style navigation">
+        <a href="#">home</a>
+        <a href="#">shows</a>
+        <a href="#">live</a>
+        <a href="#">my byutv</a>
+      </nav>
+      <span class="signin">sign up / in</span>
+    </header>
+    <main>
+      <div class="app-shell">
+        <section class="panel hero-panel">
+          <div class="hero-grid">
+            <div>
+              <p class="brand-kicker">watch together / metadata tools</p>
+              <h1>batch metadata update</h1>
+              <p>Enter one or more itemcodes, review the related Series, S#, and Episode Number where available, complete every item, then submit/export the full batch once.</p>
+              <form id="lookup-form" class="lookup">
+                <div>
+                  <label for="itemCodes">Itemcodes</label>
+                  <textarea id="itemCodes" name="itemCodes" required autocomplete="off" placeholder="Example: 950672, 950673, 950680"></textarea>
+                </div>
+                <button type="submit">Load batch</button>
+              </form>
+              <div id="lookup-message" class="message hidden"></div>
+            </div>
+            <aside class="hero-card" aria-label="Update workflow summary">
+              <div class="status-pill"><span>Load</span><span>Multiple itemcodes</span></div>
+              <div class="status-pill"><span>Review</span><span>Series / S# / Episode #</span></div>
+              <div class="status-pill"><span>Complete</span><span>Every item</span></div>
+              <div class="status-pill"><span>Submit</span><span>One final export</span></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-header">
+            <div>
+              <h2>CSV fallback mode</h2>
+              <p class="small">Use this when the backend is unavailable or the HTML is opened directly. Select <code>Products - Green-lit (Metadata CSV) (7)_002.csv</code>; optionally select <code>records/updated-itemcodes.json</code>. Fallback mode downloads replacement files after final export.</p>
+            </div>
+            <span class="section-badge">Offline ready</span>
+          </div>
+          <div class="grid">
+            <div>
+              <label for="csvFile">Products CSV</label>
+              <input id="csvFile" type="file" accept=".csv,text/csv" />
+            </div>
+            <div>
+              <label for="lockFile">Updated itemcodes JSON (optional)</label>
+              <input id="lockFile" type="file" accept=".json,application/json" />
+            </div>
+          </div>
+          <div id="file-message" class="message hidden"></div>
+        </section>
+
+        <section id="batch-panel" class="panel hidden">
+          <div class="section-header">
+            <div>
+              <h2>Batch workspace</h2>
+              <p id="batch-progress" class="small">Complete each loaded item before final export/submission.</p>
+            </div>
+            <span class="section-badge">All items required</span>
+          </div>
+          <div class="batch-layout">
+            <div>
+              <h3>Loaded itemcodes</h3>
+              <div id="item-list" class="item-list"></div>
+            </div>
+            <div id="editor-panel" class="hidden">
+              <div class="section-header">
+                <div>
+                  <h3 id="editor-heading">Edit product</h3>
+                  <div id="related-meta" class="related-meta"></div>
+                </div>
+                <span id="editor-status" class="completion-badge">Not complete</span>
+              </div>
+              <form id="update-form">
+                <div class="grid">
+                  <div>
+                    <label for="submittedBy">Submitted by</label>
+                    <input id="submittedBy" name="submittedBy" autocomplete="name" placeholder="Your name or team" required />
+                  </div>
+                  <div>
+                    <label for="notes">Batch notes</label>
+                    <textarea id="notes" name="notes" placeholder="Optional note about this batch"></textarea>
+                  </div>
+                </div>
+                <h3>Editable CSV metadata fields</h3>
+                <div id="field-list" class="grid"></div>
+                <div class="actions">
+                  <button id="complete-button" type="submit">Complete this form</button>
+                  <button id="final-button" type="button" class="secondary" disabled>Final export/submission</button>
+                </div>
+                <div id="submit-message" class="message hidden"></div>
+              </form>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const ITEM_CODE_COLUMN = 'Item Code';
+      const EDITABLE_FIELDS = ['Press Title', 'Press Title - Sort', 'Press Title - Short', 'Long Description', 'Medium Description', 'Short Description', 'Xtra Short Description', 'Tiny Description'];
+      const RELATED_FIELDS = ['Series', 'S#', 'Episode Number'];
+      const PARENT_CHILD_FIELDS = ['Series', 'Season', 'S#', 'Episode', 'Episode Number'];
+      const METADATA_SCHEMA = 'products-green-lit.metadata.schema';
+      const PARENT_CHILD_SCHEMA = 'products-green-lit.parent-child.schema';
+      const XML_SCHEMA = 'products-green-lit.batch-metadata.xml';
+      const XSL_SCHEMA = 'products-green-lit.batch-metadata.xsl';
+      const DEFAULT_CSV_FILENAME = 'Products - Green-lit (Metadata CSV) (7)_002.csv';
+
+      const lookupForm = document.querySelector('#lookup-form');
+      const updateForm = document.querySelector('#update-form');
+      const batchPanel = document.querySelector('#batch-panel');
+      const editorPanel = document.querySelector('#editor-panel');
+      const itemList = document.querySelector('#item-list');
+      const fieldList = document.querySelector('#field-list');
+      const relatedMeta = document.querySelector('#related-meta');
+      const lookupMessage = document.querySelector('#lookup-message');
+      const fileMessage = document.querySelector('#file-message');
+      const submitMessage = document.querySelector('#submit-message');
+      const finalButton = document.querySelector('#final-button');
+      const completeButton = document.querySelector('#complete-button');
+      const editorHeading = document.querySelector('#editor-heading');
+      const editorStatus = document.querySelector('#editor-status');
+      const batchProgress = document.querySelector('#batch-progress');
+      const csvFileInput = document.querySelector('#csvFile');
+      const lockFileInput = document.querySelector('#lockFile');
+
+      let activeMode = 'server';
+      let activeIndex = -1;
+      let batchItems = [];
+      let activeFields = [];
+      let localCsv = null;
+      let localUpdatedItemCodes = new Set();
+
+      function showMessage(element, type, text) {
+        element.className = `message ${type}`;
+        element.textContent = text;
+        element.classList.remove('hidden');
+      }
+      function hideMessage(element) { element.classList.add('hidden'); element.textContent = ''; }
+      function parseItemCodes(value) { return [...new Set(value.split(/[\s,;]+/).map((code) => code.trim()).filter(Boolean))]; }
+
+      function parseCsv(text) {
+        const cleanText = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+        const rows = [];
+        let row = [];
+        let field = '';
+        let inQuotes = false;
+        for (let i = 0; i < cleanText.length; i += 1) {
+          const char = cleanText[i];
+          const next = cleanText[i + 1];
+          if (inQuotes) {
+            if (char === '"' && next === '"') { field += '"'; i += 1; }
+            else if (char === '"') inQuotes = false;
+            else field += char;
+            continue;
+          }
+          if (char === '"') inQuotes = true;
+          else if (char === ',') { row.push(field); field = ''; }
+          else if (char === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+          else if (char === '\r') { if (next === '\n') continue; row.push(field); rows.push(row); row = []; field = ''; }
+          else field += char;
+        }
+        if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+        return rows;
+      }
+      function stringifyCsv(rows) { return `${rows.map((row) => row.map(formatCsvField).join(',')).join('\n')}\n`; }
+      function formatCsvField(value) {
+        const normalizedValue = value == null ? '' : String(value);
+        return /[",\r\n]/.test(normalizedValue) ? `"${normalizedValue.replaceAll('"', '""')}"` : normalizedValue;
+      }
+      function rowToObject(headers, row) { return Object.fromEntries(headers.map((header, index) => [header, row[index] || ''])); }
+      function pickFields(product, fields) { return Object.fromEntries(fields.map((field) => [field, product[field] || ''])); }
+      function getPresentEditableFields(headers) { return EDITABLE_FIELDS.filter((field) => headers.includes(field)); }
+      function findLocalRowIndex(itemCode) {
+        if (!localCsv) return -1;
+        const itemCodeIndex = localCsv.headers.indexOf(ITEM_CODE_COLUMN);
+        return localCsv.rows.findIndex((row, index) => index > 0 && row[itemCodeIndex] === itemCode);
+      }
+      function buildSchemaDocuments({ itemCode, submittedAt, submittedBy, notes, originalProduct, updatedProduct }) {
+        return {
+          metadata: { $schema: METADATA_SCHEMA, itemCode, submittedAt, submittedBy, notes, originalMetadata: pickFields(originalProduct, EDITABLE_FIELDS), updatedMetadata: pickFields(updatedProduct, EDITABLE_FIELDS) },
+          parentChild: { $schema: PARENT_CHILD_SCHEMA, itemCode, submittedAt, hierarchy: pickFields(updatedProduct, PARENT_CHILD_FIELDS) },
+        };
+      }
+      function escapeXml(value) {
+        return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
+      }
+      function fieldsToXml(fields, indent) {
+        return Object.entries(fields).map(([name, value]) => `${indent}<field name="${escapeXml(name)}">${escapeXml(value)}</field>`).join('\n');
+      }
+      function recordToXml(record, indent = '  ') {
+        const metadata = record.jsonFiles.metadata;
+        const parentChild = record.jsonFiles.parentChild;
+        return `${indent}<record itemCode="${escapeXml(record.itemCode)}">
+${indent}  <metadata schema="${escapeXml(metadata.$schema)}">
+${indent}    <original>
+${fieldsToXml(metadata.originalMetadata, `${indent}      `)}
+${indent}    </original>
+${indent}    <updated>
+${fieldsToXml(metadata.updatedMetadata, `${indent}      `)}
+${indent}    </updated>
+${indent}  </metadata>
+${indent}  <parentChild schema="${escapeXml(parentChild.$schema)}">
+${fieldsToXml(parentChild.hierarchy, `${indent}    `)}
+${indent}  </parentChild>
+${indent}</record>`;
+      }
+      function buildBatchXml(record) {
+        const records = record.records || [record];
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="${XSL_SCHEMA}"?>
+<productMetadataBatch schema="${XML_SCHEMA}" submittedAt="${escapeXml(record.submittedAt)}" submittedBy="${escapeXml(record.submittedBy)}">
+  <notes>${escapeXml(record.notes)}</notes>
+${records.map((item) => recordToXml(item)).join('\n')}
+</productMetadataBatch>
+`;
+      }
+      function buildBatchXsl() {
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <xsl:output method="html" encoding="UTF-8" indent="yes"/>
+  <xsl:template match="/productMetadataBatch">
+    <html><head><title>Product metadata batch</title><style>body{background:#050b15;color:#f8fbff;font-family:Arial,sans-serif;padding:2rem}table{border-collapse:collapse;width:100%}th,td{border:1px solid #2d405f;padding:.65rem;text-align:left;vertical-align:top}th{background:#132238}h1,h2{color:#00a3ff}</style></head>
+      <body><h1>Product metadata batch</h1><p><strong>Submitted at:</strong> <xsl:value-of select="@submittedAt"/></p><p><strong>Submitted by:</strong> <xsl:value-of select="@submittedBy"/></p><p><strong>Notes:</strong> <xsl:value-of select="notes"/></p>
+        <xsl:for-each select="record"><h2>Itemcode <xsl:value-of select="@itemCode"/></h2><table><tr><th>Section</th><th>Field</th><th>Value</th></tr>
+          <xsl:for-each select="metadata/updated/field"><tr><td>Updated metadata</td><td><xsl:value-of select="@name"/></td><td><xsl:value-of select="."/></td></tr></xsl:for-each>
+          <xsl:for-each select="parentChild/field"><tr><td>Parent/child</td><td><xsl:value-of select="@name"/></td><td><xsl:value-of select="."/></td></tr></xsl:for-each>
+        </table></xsl:for-each>
+      </body></html>
+  </xsl:template>
+</xsl:stylesheet>
+`;
+      }
+      function addTransformDocuments(record) {
+        return { ...record, schemas: { ...record.schemas, xml: XML_SCHEMA, xsl: XSL_SCHEMA }, xmlFile: buildBatchXml(record), xslFile: buildBatchXsl() };
+      }
+      function downloadTransformFiles(record, baseFilename) {
+        downloadFile(`${baseFilename}.xml`, record.xmlFile || buildBatchXml(record), 'application/xml');
+        downloadFile(`${baseFilename}.xsl`, record.xslFile || buildBatchXsl(), 'application/xml');
+      }
+      function downloadFile(filename, contents, type) {
+        const blob = new Blob([contents], { type });
+        const downloadUrl = URL.createObjectURL(blob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = downloadUrl;
+        downloadLink.download = filename;
+        document.body.append(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
+        URL.revokeObjectURL(downloadUrl);
+      }
+      function getRelatedText(product) {
+        return RELATED_FIELDS.map((field) => [field, product[field]]).filter(([, value]) => value).map(([field, value]) => `${field}: ${value}`);
+      }
+      function getCurrentPayloadMeta() {
+        const formData = new FormData(updateForm);
+        return { submittedBy: formData.get('submittedBy') || '', notes: formData.get('notes') || '' };
+      }
+      function updateProgress() {
+        const completed = batchItems.filter((item) => item.completed).length;
+        const locked = batchItems.filter((item) => item.locked).length;
+        batchProgress.textContent = `${completed} of ${batchItems.length} item${batchItems.length === 1 ? '' : 's'} completed${locked ? `; ${locked} locked` : ''}. Final export/submission unlocks only when every item is completed.`;
+        finalButton.disabled = batchItems.length === 0 || locked > 0 || completed !== batchItems.length;
+      }
+      function renderItemList() {
+        itemList.innerHTML = '';
+        batchItems.forEach((item, index) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `item-card${index === activeIndex ? ' active' : ''}${item.completed ? ' complete' : ''}${item.locked ? ' locked' : ''}`;
+          button.addEventListener('click', () => selectItem(index));
+          const related = getRelatedText(item.product).map((text) => `<span>${text}</span>`).join('');
+          button.innerHTML = `<div class="item-title"><span>${item.itemCode}</span><span class="completion-badge ${item.locked ? 'locked' : item.completed ? 'complete' : ''}">${item.locked ? 'Locked' : item.completed ? 'Complete' : 'Needs edit'}</span></div><div class="item-meta">${related || '<span>No related series data</span>'}</div>`;
+          itemList.append(button);
+        });
+        updateProgress();
+      }
+      function renderFields(item) {
+        fieldList.innerHTML = '';
+        activeFields.forEach((field) => {
+          const card = document.createElement('div');
+          card.className = 'field-card';
+          const inputTag = field.toLowerCase().includes('description') ? 'textarea' : 'input';
+          const draftValue = item.updates && Object.prototype.hasOwnProperty.call(item.updates, field) ? item.updates[field] : '';
+          card.innerHTML = `<label for="field-${field}">${field}</label><div class="current-value">${item.product[field] || '(blank)'}</div><${inputTag} id="field-${field}" name="${field}" required ${item.locked ? 'disabled' : ''}></${inputTag}>`;
+          fieldList.append(card);
+          card.querySelector(`[name="${field}"]`).value = draftValue;
+        });
+      }
+      function scrollToBatchWorkspace() {
+        batchPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      function selectItem(index) {
+        activeIndex = index;
+        const item = batchItems[index];
+        editorPanel.classList.remove('hidden');
+        editorHeading.textContent = `Edit product ${item.itemCode}`;
+        relatedMeta.innerHTML = getRelatedText(item.product).map((text) => `<span>${text}</span>`).join('') || '<span>No related Series, S#, or Episode Number</span>';
+        editorStatus.className = `completion-badge ${item.locked ? 'locked' : item.completed ? 'complete' : ''}`;
+        editorStatus.textContent = item.locked ? 'Locked' : item.completed ? 'Complete' : 'Not complete';
+        completeButton.disabled = item.locked;
+        renderFields(item);
+        renderItemList();
+      }
+      function collectCurrentUpdates() {
+        const formData = new FormData(updateForm);
+        return Object.fromEntries(activeFields.map((field) => [field, formData.get(field) || '']));
+      }
+      function getCompletionValidationError(updates) {
+        const formData = new FormData(updateForm);
+        if (!String(formData.get('submittedBy') || '').trim()) {
+          return 'Submitted by is required before this form can be completed.';
+        }
+
+        const missingFields = activeFields.filter((field) => !String(updates[field] || '').trim());
+        if (missingFields.length > 0) {
+          return `Fill every Editable CSV metadata field before completing this form. Missing: ${missingFields.join(', ')}.`;
+        }
+
+        return '';
+      }
+      function findNextNeedsEditIndex(fromIndex) {
+        if (batchItems.length === 0) return -1;
+        for (let offset = 1; offset <= batchItems.length; offset += 1) {
+          const index = (fromIndex + offset) % batchItems.length;
+          const item = batchItems[index];
+          if (!item.completed && !item.locked) return index;
+        }
+        return -1;
+      }
+      async function loadServerProduct(itemCode) {
+        const response = await fetch(`api/product/${encodeURIComponent(itemCode)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to load product.');
+        return { itemCode, product: data.product, locked: data.locked, completed: false, updates: {}, headers: data.headers, fields: data.updateableFields };
+      }
+      function loadLocalProduct(itemCode) {
+        const rowIndex = findLocalRowIndex(itemCode);
+        if (rowIndex === -1) throw new Error(`No product found for itemcode ${itemCode} in the selected CSV.`);
+        return { itemCode, product: rowToObject(localCsv.headers, localCsv.rows[rowIndex]), locked: localUpdatedItemCodes.has(itemCode), completed: false, updates: {}, headers: localCsv.headers, fields: getPresentEditableFields(localCsv.headers) };
+      }
+      async function loadBatch(itemCodes) {
+        batchItems = [];
+        activeIndex = -1;
+        activeMode = localCsv ? 'local' : 'server';
+        try {
+          if (activeMode === 'local') batchItems = itemCodes.map(loadLocalProduct);
+          else batchItems = await Promise.all(itemCodes.map(loadServerProduct));
+        } catch (error) {
+          if (!localCsv && (error instanceof TypeError || error.message === 'Failed to fetch')) {
+            throw new Error('Cannot reach the backend. Start the server with `npm start`, or load the CSV in fallback mode and try again.');
+          }
+          throw error;
+        }
+        activeFields = batchItems[0] ? batchItems[0].fields : [];
+        batchPanel.classList.remove('hidden');
+        hideMessage(submitMessage);
+        renderItemList();
+        selectItem(0);
+      }
+      lookupForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        hideMessage(lookupMessage);
+        const itemCodes = parseItemCodes(new FormData(lookupForm).get('itemCodes'));
+        if (itemCodes.length === 0) return;
+        try {
+          await loadBatch(itemCodes);
+          showMessage(lookupMessage, 'info', `Loaded ${itemCodes.length} itemcode${itemCodes.length === 1 ? '' : 's'} in ${activeMode === 'local' ? 'CSV fallback' : 'server'} mode. Complete every item before final export/submission.`);
+        } catch (error) {
+          showMessage(lookupMessage, 'error', error.message);
+        }
+      });
+      csvFileInput.addEventListener('change', async () => {
+        const [file] = csvFileInput.files;
+        if (!file) return;
+        const rows = parseCsv(await file.text());
+        const headers = rows[0] || [];
+        if (!headers.includes(ITEM_CODE_COLUMN)) { localCsv = null; showMessage(fileMessage, 'error', `The selected CSV is missing the required ${ITEM_CODE_COLUMN} column.`); return; }
+        const missingFields = EDITABLE_FIELDS.filter((field) => !headers.includes(field));
+        if (missingFields.length > 0) { localCsv = null; showMessage(fileMessage, 'error', `The selected CSV is missing editable fields: ${missingFields.join(', ')}.`); return; }
+        localCsv = { filename: file.name || DEFAULT_CSV_FILENAME, headers, rows };
+        showMessage(fileMessage, 'success', `Loaded ${file.name || DEFAULT_CSV_FILENAME}. Batch lookups will use the selected CSV until the page is refreshed.`);
+      });
+      lockFileInput.addEventListener('change', async () => {
+        const [file] = lockFileInput.files;
+        if (!file) return;
+        const record = JSON.parse(await file.text());
+        localUpdatedItemCodes = new Set((record.updatedItemCodes || []).map(String));
+        showMessage(fileMessage, 'success', `Loaded ${localUpdatedItemCodes.size} locked itemcode${localUpdatedItemCodes.size === 1 ? '' : 's'} from ${file.name}.`);
+      });
+      updateForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (activeIndex === -1) return;
+        const updates = collectCurrentUpdates();
+        const validationError = getCompletionValidationError(updates);
+        if (validationError) {
+          showMessage(submitMessage, 'error', validationError);
+          return;
+        }
+
+        batchItems[activeIndex].updates = updates;
+        batchItems[activeIndex].completed = true;
+        hideMessage(submitMessage);
+        const completedItemCode = batchItems[activeIndex].itemCode;
+        const nextNeedsEditIndex = findNextNeedsEditIndex(activeIndex);
+        renderItemList();
+        if (nextNeedsEditIndex !== -1) {
+          selectItem(nextNeedsEditIndex);
+          scrollToBatchWorkspace();
+          showMessage(submitMessage, 'success', `Itemcode ${completedItemCode} is complete. Moved to itemcode ${batchItems[nextNeedsEditIndex].itemCode}.`);
+        } else {
+          selectItem(activeIndex);
+          scrollToBatchWorkspace();
+          showMessage(submitMessage, 'success', `Itemcode ${completedItemCode} is complete. All loaded itemcodes are complete; final export/submission is now available.`);
+        }
+      });
+      async function submitServerBatch(payload) {
+        const response = await fetch('api/batch-update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to submit batch update.');
+        const baseFilename = `product-metadata-batch-${data.submittedAt.replace(/[:.]/g, '-')}`;
+        downloadFile(`${baseFilename}.json`, JSON.stringify(data, null, 2), 'application/json');
+        downloadTransformFiles(data, baseFilename);
+        batchItems = batchItems.map((item) => ({ ...item, locked: true }));
+        renderItemList();
+        showMessage(submitMessage, 'success', 'Batch submitted, CSV updated, itemcodes locked, and JSON, XML, and XSL files downloaded.');
+      }
+      function submitLocalBatch(payload) {
+        const submittedAt = new Date().toISOString();
+        const records = payload.items.map((item) => {
+          const rowIndex = findLocalRowIndex(item.itemCode);
+          const originalProduct = rowToObject(localCsv.headers, localCsv.rows[rowIndex]);
+          const updatedProduct = { ...originalProduct };
+          activeFields.forEach((field) => {
+            const columnIndex = localCsv.headers.indexOf(field);
+            const normalizedValue = item.updates[field] == null ? '' : String(item.updates[field]);
+            localCsv.rows[rowIndex][columnIndex] = normalizedValue;
+            updatedProduct[field] = normalizedValue;
+          });
+          localUpdatedItemCodes.add(item.itemCode);
+          return { itemCode: item.itemCode, submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, schemas: { metadata: METADATA_SCHEMA, parentChild: PARENT_CHILD_SCHEMA }, jsonFiles: buildSchemaDocuments({ itemCode: item.itemCode, submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, originalProduct, updatedProduct }) };
+        });
+        const batchRecord = addTransformDocuments({ submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, itemCodes: records.map((record) => record.itemCode), schemas: { metadata: METADATA_SCHEMA, parentChild: PARENT_CHILD_SCHEMA }, records });
+        const baseFilename = `product-metadata-batch-${submittedAt.replace(/[:.]/g, '-')}`;
+        downloadFile(`${baseFilename}.json`, JSON.stringify(batchRecord, null, 2), 'application/json');
+        downloadTransformFiles(batchRecord, baseFilename);
+        downloadFile(localCsv.filename || DEFAULT_CSV_FILENAME, stringifyCsv(localCsv.rows), 'text/csv');
+        downloadFile('updated-itemcodes.json', JSON.stringify({ updatedItemCodes: [...localUpdatedItemCodes].sort() }, null, 2), 'application/json');
+        batchItems = batchItems.map((item) => ({ ...item, locked: true }));
+        renderItemList();
+        showMessage(submitMessage, 'success', 'Downloaded the batch JSON, XML, XSL, replacement CSV, and updated itemcode lock record.');
+      }
+      finalButton.addEventListener('click', async () => {
+        if (finalButton.disabled) return;
+        const meta = getCurrentPayloadMeta();
+        const payload = { ...meta, items: batchItems.map((item) => ({ itemCode: item.itemCode, updates: item.updates })) };
+        finalButton.disabled = true;
+        try {
+          if (activeMode === 'local') submitLocalBatch(payload);
+          else await submitServerBatch(payload);
+        } catch (error) {
+          finalButton.disabled = false;
+          showMessage(submitMessage, 'error', error.message === 'Failed to fetch' ? 'Cannot reach the backend. Start the server with `npm start`, or load the CSV in fallback mode and try again.' : error.message);
+        }
+      });
+    </script>
+  </body>
+</html>
