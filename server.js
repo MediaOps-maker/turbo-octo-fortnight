@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseCsv, stringifyCsv } from './lib/csv.js';
+import { applyUpdatesToRow, findRowIndexByItemCode, getPresentEditableFields, rowToObject, validateUpdates } from './lib/product-updates.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -11,7 +12,6 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const RECORDS_DIR = path.join(__dirname, 'records');
 const SUBMISSIONS_DIR = path.join(__dirname, 'submissions');
 const UPDATED_ITEMCODES_FILE = path.join(RECORDS_DIR, 'updated-itemcodes.json');
-const ITEM_CODE_COLUMN = 'Item Code';
 export const EDITABLE_FIELDS = [
   'Press Title',
   'Press Title - Sort',
@@ -59,18 +59,6 @@ async function writeUpdatedItemCodes(updatedItemCodes) {
   );
 }
 
-function findRowIndexByItemCode(rows, headers, itemCode) {
-  const itemCodeIndex = headers.indexOf(ITEM_CODE_COLUMN);
-  if (itemCodeIndex === -1) {
-    throw new Error(`Missing required "${ITEM_CODE_COLUMN}" column in CSV.`);
-  }
-  return rows.findIndex((row, index) => index > 0 && row[itemCodeIndex] === itemCode);
-}
-
-function rowToObject(headers, row) {
-  return Object.fromEntries(headers.map((header, index) => [header, row[index] ?? '']));
-}
-
 function jsonResponse(res, statusCode, payload, extraHeaders = {}) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -106,10 +94,6 @@ function pickFields(product, fields) {
   return Object.fromEntries(fields.map((field) => [field, product[field] ?? '']));
 }
 
-function getPresentEditableFields(headers) {
-  return EDITABLE_FIELDS.filter((field) => headers.includes(field));
-}
-
 function buildSchemaDocuments({ itemCode, submittedAt, submittedBy, notes, originalProduct, updatedProduct }) {
   return {
     metadata: {
@@ -130,6 +114,84 @@ function buildSchemaDocuments({ itemCode, submittedAt, submittedBy, notes, origi
   };
 }
 
+
+function escapeXml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+}
+
+function fieldMapToXml(parentName, fields, indent = '    ') {
+  const fieldEntries = Object.entries(fields)
+    .map(([name, value]) => `${indent}<field name="${escapeXml(name)}">${escapeXml(value)}</field>`)
+    .join('\n');
+  return `${indent.slice(0, -2)}<${parentName}>
+${fieldEntries}
+${indent.slice(0, -2)}</${parentName}>`;
+}
+
+export function buildXmlDocuments({ itemCode, submittedAt, submittedBy, notes, originalProduct, updatedProduct }) {
+  const originalMetadata = pickFields(originalProduct, EDITABLE_FIELDS);
+  const updatedMetadata = pickFields(updatedProduct, EDITABLE_FIELDS);
+  const hierarchy = pickFields(updatedProduct, PARENT_CHILD_FIELDS);
+
+  return {
+    metadata: `<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="products-green-lit.metadata.xsl"?>
+<metadata schema="${METADATA_SCHEMA}">
+  <itemCode>${escapeXml(itemCode)}</itemCode>
+  <submittedAt>${escapeXml(submittedAt)}</submittedAt>
+  <submittedBy>${escapeXml(submittedBy)}</submittedBy>
+  <notes>${escapeXml(notes)}</notes>
+${fieldMapToXml('originalMetadata', originalMetadata)}
+${fieldMapToXml('updatedMetadata', updatedMetadata)}
+</metadata>
+`,
+    parentChild: `<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="products-green-lit.parent-child.xsl"?>
+<parentChild schema="${PARENT_CHILD_SCHEMA}">
+  <itemCode>${escapeXml(itemCode)}</itemCode>
+  <submittedAt>${escapeXml(submittedAt)}</submittedAt>
+${fieldMapToXml('hierarchy', hierarchy)}
+</parentChild>
+`,
+  };
+}
+
+export function buildXslDocuments() {
+  const stylesheet = (title) => `<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <xsl:output method="html" encoding="UTF-8" indent="yes"/>
+  <xsl:template match="/">
+    <html>
+      <head>
+        <title>${escapeXml(title)}</title>
+        <style>body{font-family:Arial,sans-serif;margin:2rem;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ccc;padding:.5rem;text-align:left;}th{background:#eef;}</style>
+      </head>
+      <body>
+        <h1>${escapeXml(title)}</h1>
+        <p><strong>Schema:</strong> <xsl:value-of select="/*/@schema"/></p>
+        <table>
+          <tr><th>Field</th><th>Value</th></tr>
+          <xsl:for-each select="//*[not(*)]">
+            <tr><td><xsl:value-of select="name()"/> <xsl:if test="@name">(<xsl:value-of select="@name"/>)</xsl:if></td><td><xsl:value-of select="."/></td></tr>
+          </xsl:for-each>
+        </table>
+      </body>
+    </html>
+  </xsl:template>
+</xsl:stylesheet>
+`;
+
+  return {
+    metadata: stylesheet('Products Green-lit Metadata Update'),
+    parentChild: stylesheet('Products Green-lit Parent/Child Update'),
+  };
+}
+
 async function getProduct(req, res, itemCode) {
   const normalizedItemCode = sanitizeItemCode(itemCode);
   const { headers, rows } = await readCsvTable();
@@ -144,49 +206,24 @@ async function getProduct(req, res, itemCode) {
     locked: updatedItemCodes.has(normalizedItemCode),
     headers,
     product: rowToObject(headers, rows[rowIndex]),
-    updateableFields: getPresentEditableFields(headers),
+    updateableFields: getPresentEditableFields(headers, EDITABLE_FIELDS),
     metadataSchema: METADATA_SCHEMA,
     parentChildSchema: PARENT_CHILD_SCHEMA,
   });
 }
 
-function validateUpdates(updates, presentEditableFields) {
-  if (typeof updates !== 'object' || Array.isArray(updates)) {
-    return 'Updates must be an object keyed by CSV column name.';
-  }
-
-  const invalidFields = Object.keys(updates).filter((field) => !presentEditableFields.includes(field));
-  if (invalidFields.length > 0) {
-    return `Only these fields can be updated: ${presentEditableFields.join(', ')}. Invalid fields: ${invalidFields.join(', ')}.`;
-  }
-
-  return '';
-}
-
-function applyUpdatesToRow({ headers, row, updates, presentEditableFields }) {
-  const originalProduct = rowToObject(headers, row);
-  const updatedProduct = { ...originalProduct };
-
-  for (const field of presentEditableFields) {
-    if (!Object.prototype.hasOwnProperty.call(updates, field)) continue;
-    const columnIndex = headers.indexOf(field);
-    const normalizedValue = updates[field] == null ? '' : String(updates[field]);
-    row[columnIndex] = normalizedValue;
-    updatedProduct[field] = normalizedValue;
-  }
-
-  return { originalProduct, updatedProduct };
-}
 
 function buildSubmissionRecord({ itemCode, timestamp, submittedBy, notes, originalProduct, updatedProduct }) {
-  const schemaDocuments = buildSchemaDocuments({
+  const documentPayload = {
     itemCode,
     submittedAt: timestamp,
     submittedBy,
     notes,
     originalProduct,
     updatedProduct,
-  });
+  };
+  const schemaDocuments = buildSchemaDocuments(documentPayload);
+  const xmlDocuments = buildXmlDocuments(documentPayload);
 
   return {
     itemCode,
@@ -198,6 +235,8 @@ function buildSubmissionRecord({ itemCode, timestamp, submittedBy, notes, origin
       parentChild: PARENT_CHILD_SCHEMA,
     },
     jsonFiles: schemaDocuments,
+    xmlFiles: xmlDocuments,
+    xslFiles: buildXslDocuments(),
   };
 }
 
@@ -217,7 +256,7 @@ async function submitUpdate(req, res) {
   }
 
   const { headers, rows } = await readCsvTable();
-  const presentEditableFields = getPresentEditableFields(headers);
+  const presentEditableFields = getPresentEditableFields(headers, EDITABLE_FIELDS);
   const validationError = validateUpdates(updates, presentEditableFields);
   if (validationError) {
     return errorResponse(res, 400, validationError);
@@ -291,7 +330,7 @@ async function submitBatchUpdate(req, res) {
   }
 
   const { headers, rows } = await readCsvTable();
-  const presentEditableFields = getPresentEditableFields(headers);
+  const presentEditableFields = getPresentEditableFields(headers, EDITABLE_FIELDS);
   for (const item of normalizedItems) {
     const validationError = validateUpdates(item.updates, presentEditableFields);
     if (validationError) {
