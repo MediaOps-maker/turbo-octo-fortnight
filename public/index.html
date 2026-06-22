@@ -537,29 +537,27 @@
           .replaceAll('"', '&quot;')
           .replaceAll("'", '&apos;');
       }
-      function fieldMapToXml(parentName, fields, indent = '    ') {
-        const fieldEntries = Object.entries(fields).map(([name, value]) => `${indent}<field name="${escapeXml(name)}">${escapeXml(value)}</field>`).join('\n');
-        return `${indent.slice(0, -2)}<${parentName}>\n${fieldEntries}\n${indent.slice(0, -2)}</${parentName}>`;
+      function isValidXmlName(name) { return /^[A-Za-z_][A-Za-z0-9_.-]*$/.test(name); }
+      function xmlElement(name, contents, indent) {
+        if (isValidXmlName(name)) return `${indent}<${name}>${contents}</${name}>`;
+        return `${indent}<field name="${escapeXml(name)}">${contents}</field>`;
       }
-      function buildXmlDocuments({ itemCode, submittedAt, submittedBy, notes, originalProduct, updatedProduct }) {
-        const originalMetadata = pickFields(originalProduct, EDITABLE_FIELDS);
-        const updatedMetadata = pickFields(updatedProduct, EDITABLE_FIELDS);
-        const hierarchy = pickFields(updatedProduct, PARENT_CHILD_FIELDS);
-        return {
-          metadata: `<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl" href="products-green-lit.metadata.xsl"?>\n<metadata schema="${METADATA_SCHEMA}">\n  <itemCode>${escapeXml(itemCode)}</itemCode>\n  <submittedAt>${escapeXml(submittedAt)}</submittedAt>\n  <submittedBy>${escapeXml(submittedBy)}</submittedBy>\n  <notes>${escapeXml(notes)}</notes>\n${fieldMapToXml('originalMetadata', originalMetadata)}\n${fieldMapToXml('updatedMetadata', updatedMetadata)}\n</metadata>\n`,
-          parentChild: `<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl" href="products-green-lit.parent-child.xsl"?>\n<parentChild schema="${PARENT_CHILD_SCHEMA}">\n  <itemCode>${escapeXml(itemCode)}</itemCode>\n  <submittedAt>${escapeXml(submittedAt)}</submittedAt>\n${fieldMapToXml('hierarchy', hierarchy)}\n</parentChild>\n`,
-        };
+      function valueToXml(name, value, indent = '  ') {
+        if (Array.isArray(value)) return xmlElement(name, `\n${value.map((item) => valueToXml('item', item, `${indent}  `)).join('\n')}\n${indent}`, indent);
+        if (value && typeof value === 'object') return xmlElement(name, `\n${Object.entries(value).map(([key, childValue]) => valueToXml(key, childValue, `${indent}  `)).join('\n')}\n${indent}`, indent);
+        return xmlElement(name, escapeXml(value), indent);
       }
-      function buildXslDocuments() {
-        const stylesheet = (title) => `<?xml version="1.0" encoding="UTF-8"?>\n<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">\n  <xsl:output method="html" encoding="UTF-8" indent="yes"/>\n  <xsl:template match="/">\n    <html><head><title>${escapeXml(title)}</title><style>body{font-family:Arial,sans-serif;margin:2rem;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ccc;padding:.5rem;text-align:left;}th{background:#eef;}</style></head><body><h1>${escapeXml(title)}</h1><p><strong>Schema:</strong> <xsl:value-of select="/*/@schema"/></p><table><tr><th>Field</th><th>Value</th></tr><xsl:for-each select="//*[not(*)]"><tr><td><xsl:value-of select="name()"/> <xsl:if test="@name">(<xsl:value-of select="@name"/>)</xsl:if></td><td><xsl:value-of select="."/></td></tr></xsl:for-each></table></body></html>\n  </xsl:template>\n</xsl:stylesheet>\n`;
-        return { metadata: stylesheet('Products Green-lit Metadata Update'), parentChild: stylesheet('Products Green-lit Parent/Child Update') };
+      function buildBatchXmlDocument(batchRecord) {
+        const entries = Object.entries(batchRecord).filter(([key]) => key !== 'xmlFile' && key !== 'xslFile');
+        return `<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl" href="product-metadata-batch.xsl"?>\n<productMetadataBatch>\n${entries.map(([key, value]) => valueToXml(key, value)).join('\n')}\n</productMetadataBatch>\n`;
       }
-      function downloadXmlAndXslFiles(record) {
-        const safeItemCode = record.itemCode.replace(/[^a-zA-Z0-9_-]/g, '_');
-        downloadFile(`product-${safeItemCode}-metadata.xml`, record.xmlFiles.metadata, 'application/xml');
-        downloadFile(`product-${safeItemCode}-parent-child.xml`, record.xmlFiles.parentChild, 'application/xml');
-        downloadFile('products-green-lit.metadata.xsl', record.xslFiles.metadata, 'application/xml');
-        downloadFile('products-green-lit.parent-child.xsl', record.xslFiles.parentChild, 'application/xml');
+      function buildBatchXslDocument() {
+        return `<?xml version="1.0" encoding="UTF-8"?>\n<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">\n  <xsl:output method="html" encoding="UTF-8" indent="yes"/>\n  <xsl:template match="/">\n    <html><head><title>Product Metadata Batch</title><style>body{font-family:Arial,sans-serif;margin:2rem;}table{border-collapse:collapse;width:100%;margin-bottom:1.5rem;}th,td{border:1px solid #ccc;padding:.5rem;text-align:left;vertical-align:top;}th{background:#eef;}code{white-space:pre-wrap;}</style></head><body><h1>Product Metadata Batch</h1><p><strong>Submitted at:</strong> <xsl:value-of select="productMetadataBatch/submittedAt"/></p><p><strong>Submitted by:</strong> <xsl:value-of select="productMetadataBatch/submittedBy"/></p><p><strong>Notes:</strong> <xsl:value-of select="productMetadataBatch/notes"/></p><h2>Records</h2><xsl:for-each select="productMetadataBatch/records/item"><h3>Itemcode <xsl:value-of select="itemCode"/></h3><table><tr><th>Path</th><th>Value</th></tr><xsl:for-each select=".//*[not(*)]"><tr><td><xsl:value-of select="name(..)"/> / <xsl:value-of select="name()"/></td><td><xsl:value-of select="."/></td></tr></xsl:for-each></table></xsl:for-each></body></html>\n  </xsl:template>\n</xsl:stylesheet>\n`;
+      }
+      function downloadBatchXmlAndXslFiles(batchRecord) {
+        const timestamp = batchRecord.submittedAt.replace(/[:.]/g, '-');
+        downloadFile(`product-metadata-batch-${timestamp}.xml`, batchRecord.xmlFile, 'application/xml');
+        downloadFile('product-metadata-batch.xsl', batchRecord.xslFile, 'application/xml');
       }
       function downloadFile(filename, contents, type) {
         const blob = new Blob([contents], { type });
@@ -741,11 +739,12 @@
         const response = await fetch('api/batch-update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Unable to submit batch update.');
-        downloadFile(`product-metadata-batch-${data.submittedAt.replace(/[:.]/g, '-')}.json`, JSON.stringify(data, null, 2), 'application/json');
-        data.records.forEach(downloadXmlAndXslFiles);
+        const { xmlFile, xslFile, ...batchJson } = data;
+        downloadFile(`product-metadata-batch-${data.submittedAt.replace(/[:.]/g, '-')}.json`, JSON.stringify(batchJson, null, 2), 'application/json');
+        downloadBatchXmlAndXslFiles({ ...batchJson, xmlFile, xslFile });
         batchItems = batchItems.map((item) => ({ ...item, locked: true }));
         renderItemList();
-        showMessage(submitMessage, 'success', 'Batch submitted, CSV updated, itemcodes locked, and JSON, XML, and XSL receipts downloaded.');
+        showMessage(submitMessage, 'success', 'Batch submitted, CSV updated, itemcodes locked, and JSON, XML, and XSL batch receipts downloaded.');
       }
       function submitLocalBatch(payload) {
         const submittedAt = new Date().toISOString();
@@ -761,11 +760,12 @@
           });
           localUpdatedItemCodes.add(item.itemCode);
           const documentPayload = { itemCode: item.itemCode, submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, originalProduct, updatedProduct };
-          return { itemCode: item.itemCode, submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, schemas: { metadata: METADATA_SCHEMA, parentChild: PARENT_CHILD_SCHEMA }, jsonFiles: buildSchemaDocuments(documentPayload), xmlFiles: buildXmlDocuments(documentPayload), xslFiles: buildXslDocuments() };
+          return { itemCode: item.itemCode, submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, schemas: { metadata: METADATA_SCHEMA, parentChild: PARENT_CHILD_SCHEMA }, jsonFiles: buildSchemaDocuments(documentPayload) };
         });
         const batchRecord = { submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, itemCodes: records.map((record) => record.itemCode), schemas: { metadata: METADATA_SCHEMA, parentChild: PARENT_CHILD_SCHEMA }, records };
+        const batchXmlAndXsl = { ...batchRecord, xmlFile: buildBatchXmlDocument(batchRecord), xslFile: buildBatchXslDocument() };
         downloadFile(`product-metadata-batch-${submittedAt.replace(/[:.]/g, '-')}.json`, JSON.stringify(batchRecord, null, 2), 'application/json');
-        records.forEach(downloadXmlAndXslFiles);
+        downloadBatchXmlAndXslFiles(batchXmlAndXsl);
         downloadFile(localCsv.filename || DEFAULT_CSV_FILENAME, stringifyCsv(localCsv.rows), 'text/csv');
         downloadFile('updated-itemcodes.json', JSON.stringify({ updatedItemCodes: [...localUpdatedItemCodes].sort() }, null, 2), 'application/json');
         batchItems = batchItems.map((item) => ({ ...item, locked: true }));
