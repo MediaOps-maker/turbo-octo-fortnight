@@ -529,6 +529,36 @@
           parentChild: { $schema: PARENT_CHILD_SCHEMA, itemCode, submittedAt, hierarchy: pickFields(updatedProduct, PARENT_CHILD_FIELDS) },
         };
       }
+      function escapeXml(value) {
+        return String(value ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&apos;');
+      }
+      function isValidXmlName(name) { return /^[A-Za-z_][A-Za-z0-9_.-]*$/.test(name); }
+      function xmlElement(name, contents, indent) {
+        if (isValidXmlName(name)) return `${indent}<${name}>${contents}</${name}>`;
+        return `${indent}<field name="${escapeXml(name)}">${contents}</field>`;
+      }
+      function valueToXml(name, value, indent = '  ') {
+        if (Array.isArray(value)) return xmlElement(name, `\n${value.map((item) => valueToXml('item', item, `${indent}  `)).join('\n')}\n${indent}`, indent);
+        if (value && typeof value === 'object') return xmlElement(name, `\n${Object.entries(value).map(([key, childValue]) => valueToXml(key, childValue, `${indent}  `)).join('\n')}\n${indent}`, indent);
+        return xmlElement(name, escapeXml(value), indent);
+      }
+      function buildBatchXmlDocument(batchRecord) {
+        const entries = Object.entries(batchRecord).filter(([key]) => key !== 'xmlFile' && key !== 'xslFile');
+        return `<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/xsl" href="product-metadata-batch.xsl"?>\n<productMetadataBatch>\n${entries.map(([key, value]) => valueToXml(key, value)).join('\n')}\n</productMetadataBatch>\n`;
+      }
+      function buildBatchXslDocument() {
+        return `<?xml version="1.0" encoding="UTF-8"?>\n<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">\n  <xsl:output method="html" encoding="UTF-8" indent="yes"/>\n  <xsl:template match="/">\n    <html><head><title>Product Metadata Batch</title><style>body{font-family:Arial,sans-serif;margin:2rem;}table{border-collapse:collapse;width:100%;margin-bottom:1.5rem;}th,td{border:1px solid #ccc;padding:.5rem;text-align:left;vertical-align:top;}th{background:#eef;}code{white-space:pre-wrap;}</style></head><body><h1>Product Metadata Batch</h1><p><strong>Submitted at:</strong> <xsl:value-of select="productMetadataBatch/submittedAt"/></p><p><strong>Submitted by:</strong> <xsl:value-of select="productMetadataBatch/submittedBy"/></p><p><strong>Notes:</strong> <xsl:value-of select="productMetadataBatch/notes"/></p><h2>Records</h2><xsl:for-each select="productMetadataBatch/records/item"><h3>Itemcode <xsl:value-of select="itemCode"/></h3><table><tr><th>Path</th><th>Value</th></tr><xsl:for-each select=".//*[not(*)]"><tr><td><xsl:value-of select="name(..)"/> / <xsl:value-of select="name()"/></td><td><xsl:value-of select="."/></td></tr></xsl:for-each></table></xsl:for-each></body></html>\n  </xsl:template>\n</xsl:stylesheet>\n`;
+      }
+      function downloadBatchXmlAndXslFiles(batchRecord) {
+        const timestamp = batchRecord.submittedAt.replace(/[:.]/g, '-');
+        downloadFile(`product-metadata-batch-${timestamp}.xml`, batchRecord.xmlFile, 'application/xml');
+        downloadFile('product-metadata-batch.xsl', batchRecord.xslFile, 'application/xml');
+      }
       function downloadFile(filename, contents, type) {
         const blob = new Blob([contents], { type });
         const downloadUrl = URL.createObjectURL(blob);
@@ -584,6 +614,7 @@
       function selectItem(index) {
         activeIndex = index;
         const item = batchItems[index];
+        if (!item) return;
         editorPanel.classList.remove('hidden');
         editorHeading.textContent = `Edit product ${item.itemCode}`;
         relatedMeta.innerHTML = getRelatedText(item.product).map((text) => `<span>${text}</span>`).join('') || '<span>No related Series, S#, or Episode Number</span>';
@@ -681,7 +712,7 @@
       });
       updateForm.addEventListener('submit', (event) => {
         event.preventDefault();
-        if (activeIndex === -1) return;
+        if (activeIndex === -1 || batchItems[activeIndex]?.locked) return;
         const updates = collectCurrentUpdates();
         const validationError = getCompletionValidationError(updates);
         if (validationError) {
@@ -709,10 +740,12 @@
         const response = await fetch('api/batch-update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Unable to submit batch update.');
-        downloadFile(`product-metadata-batch-${data.submittedAt.replace(/[:.]/g, '-')}.json`, JSON.stringify(data, null, 2), 'application/json');
+        const { xmlFile, xslFile, ...batchJson } = data;
+        downloadFile(`product-metadata-batch-${data.submittedAt.replace(/[:.]/g, '-')}.json`, JSON.stringify(batchJson, null, 2), 'application/json');
+        downloadBatchXmlAndXslFiles({ ...batchJson, xmlFile, xslFile });
         batchItems = batchItems.map((item) => ({ ...item, locked: true }));
-        renderItemList();
-        showMessage(submitMessage, 'success', 'Batch submitted, CSV updated, itemcodes locked, and JSON receipt downloaded.');
+        selectItem(activeIndex);
+        showMessage(submitMessage, 'success', 'Batch submitted, CSV updated, itemcodes locked, and JSON, XML, and XSL batch receipts downloaded.');
       }
       function submitLocalBatch(payload) {
         const submittedAt = new Date().toISOString();
@@ -727,26 +760,31 @@
             updatedProduct[field] = normalizedValue;
           });
           localUpdatedItemCodes.add(item.itemCode);
-          return { itemCode: item.itemCode, submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, schemas: { metadata: METADATA_SCHEMA, parentChild: PARENT_CHILD_SCHEMA }, jsonFiles: buildSchemaDocuments({ itemCode: item.itemCode, submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, originalProduct, updatedProduct }) };
+          const documentPayload = { itemCode: item.itemCode, submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, originalProduct, updatedProduct };
+          return { itemCode: item.itemCode, submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, schemas: { metadata: METADATA_SCHEMA, parentChild: PARENT_CHILD_SCHEMA }, jsonFiles: buildSchemaDocuments(documentPayload) };
         });
         const batchRecord = { submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, itemCodes: records.map((record) => record.itemCode), schemas: { metadata: METADATA_SCHEMA, parentChild: PARENT_CHILD_SCHEMA }, records };
+        const batchXmlAndXsl = { ...batchRecord, xmlFile: buildBatchXmlDocument(batchRecord), xslFile: buildBatchXslDocument() };
         downloadFile(`product-metadata-batch-${submittedAt.replace(/[:.]/g, '-')}.json`, JSON.stringify(batchRecord, null, 2), 'application/json');
+        downloadBatchXmlAndXslFiles(batchXmlAndXsl);
         downloadFile(localCsv.filename || DEFAULT_CSV_FILENAME, stringifyCsv(localCsv.rows), 'text/csv');
         downloadFile('updated-itemcodes.json', JSON.stringify({ updatedItemCodes: [...localUpdatedItemCodes].sort() }, null, 2), 'application/json');
         batchItems = batchItems.map((item) => ({ ...item, locked: true }));
-        renderItemList();
-        showMessage(submitMessage, 'success', 'Downloaded the batch JSON receipt, replacement CSV, and updated itemcode lock record.');
+        selectItem(activeIndex);
+        showMessage(submitMessage, 'success', 'Downloaded the batch JSON, XML, and XSL receipts, replacement CSV, and updated itemcode lock record.');
       }
       finalButton.addEventListener('click', async () => {
         if (finalButton.disabled) return;
         const meta = getCurrentPayloadMeta();
         const payload = { ...meta, items: batchItems.map((item) => ({ itemCode: item.itemCode, updates: item.updates })) };
         finalButton.disabled = true;
+        completeButton.disabled = true;
         try {
           if (activeMode === 'local') submitLocalBatch(payload);
           else await submitServerBatch(payload);
         } catch (error) {
           finalButton.disabled = false;
+          completeButton.disabled = Boolean(batchItems[activeIndex]?.locked);
           showMessage(submitMessage, 'error', error.message === 'Failed to fetch' ? 'Cannot reach the backend. Start the server with `npm start`, or load the CSV in fallback mode and try again.' : error.message);
         }
       });

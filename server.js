@@ -114,6 +114,85 @@ function buildSchemaDocuments({ itemCode, submittedAt, submittedBy, notes, origi
   };
 }
 
+
+function escapeXml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+}
+
+function isValidXmlName(name) {
+  return /^[A-Za-z_][A-Za-z0-9_.-]*$/.test(name);
+}
+
+function xmlElement(name, contents, indent) {
+  if (isValidXmlName(name)) {
+    return `${indent}<${name}>${contents}</${name}>`;
+  }
+  return `${indent}<field name="${escapeXml(name)}">${contents}</field>`;
+}
+
+function valueToXml(name, value, indent = '  ') {
+  if (Array.isArray(value)) {
+    return xmlElement(name, `\n${value.map((item) => valueToXml('item', item, `${indent}  `)).join('\n')}\n${indent}`, indent);
+  }
+  if (value && typeof value === 'object') {
+    const children = Object.entries(value)
+      .map(([key, childValue]) => valueToXml(key, childValue, `${indent}  `))
+      .join('\n');
+    return xmlElement(name, `\n${children}\n${indent}`, indent);
+  }
+  return xmlElement(name, escapeXml(value), indent);
+}
+
+export function buildBatchXmlDocument(batchRecord) {
+  const batchWithoutXmlAssets = Object.fromEntries(
+    Object.entries(batchRecord).filter(([key]) => key !== 'xmlFile' && key !== 'xslFile')
+  );
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="product-metadata-batch.xsl"?>
+<productMetadataBatch>
+${Object.entries(batchWithoutXmlAssets).map(([key, value]) => valueToXml(key, value)).join('\n')}
+</productMetadataBatch>
+`;
+}
+
+export function buildBatchXslDocument() {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <xsl:output method="html" encoding="UTF-8" indent="yes"/>
+  <xsl:template match="/">
+    <html>
+      <head>
+        <title>Product Metadata Batch</title>
+        <style>body{font-family:Arial,sans-serif;margin:2rem;}table{border-collapse:collapse;width:100%;margin-bottom:1.5rem;}th,td{border:1px solid #ccc;padding:.5rem;text-align:left;vertical-align:top;}th{background:#eef;}code{white-space:pre-wrap;}</style>
+      </head>
+      <body>
+        <h1>Product Metadata Batch</h1>
+        <p><strong>Submitted at:</strong> <xsl:value-of select="productMetadataBatch/submittedAt"/></p>
+        <p><strong>Submitted by:</strong> <xsl:value-of select="productMetadataBatch/submittedBy"/></p>
+        <p><strong>Notes:</strong> <xsl:value-of select="productMetadataBatch/notes"/></p>
+        <h2>Records</h2>
+        <xsl:for-each select="productMetadataBatch/records/item">
+          <h3>Itemcode <xsl:value-of select="itemCode"/></h3>
+          <table>
+            <tr><th>Path</th><th>Value</th></tr>
+            <xsl:for-each select=".//*[not(*)]">
+              <tr><td><xsl:value-of select="name(..)"/> / <xsl:value-of select="name()"/></td><td><xsl:value-of select="."/></td></tr>
+            </xsl:for-each>
+          </table>
+        </xsl:for-each>
+      </body>
+    </html>
+  </xsl:template>
+</xsl:stylesheet>
+`;
+}
+
+
 async function getProduct(req, res, itemCode) {
   const normalizedItemCode = sanitizeItemCode(itemCode);
   const { headers, rows } = await readCsvTable();
@@ -136,15 +215,15 @@ async function getProduct(req, res, itemCode) {
 
 
 function buildSubmissionRecord({ itemCode, timestamp, submittedBy, notes, originalProduct, updatedProduct }) {
-  const schemaDocuments = buildSchemaDocuments({
+  const documentPayload = {
     itemCode,
     submittedAt: timestamp,
     submittedBy,
     notes,
     originalProduct,
     updatedProduct,
-  });
-
+  };
+  const schemaDocuments = buildSchemaDocuments(documentPayload);
   return {
     itemCode,
     submittedAt: timestamp,
@@ -298,6 +377,12 @@ async function submitBatchUpdate(req, res) {
     records,
   };
 
+  const responseRecord = {
+    ...batchRecord,
+    xmlFile: buildBatchXmlDocument(batchRecord),
+    xslFile: buildBatchXslDocument(),
+  };
+
   await writeFile(CSV_FILE, stringifyCsv(rows));
   await writeFile(
     path.join(SUBMISSIONS_DIR, `batch-${timestamp.replace(/[:.]/g, '-')}.json`),
@@ -305,7 +390,7 @@ async function submitBatchUpdate(req, res) {
   );
   await writeUpdatedItemCodes(updatedItemCodes);
 
-  return jsonResponse(res, 200, batchRecord, {
+  return jsonResponse(res, 200, responseRecord, {
     'Content-Disposition': `attachment; filename="product-metadata-batch-${timestamp.replace(/[:.]/g, '-')}.json"`,
   });
 }
