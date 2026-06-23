@@ -614,6 +614,7 @@
       function selectItem(index) {
         activeIndex = index;
         const item = batchItems[index];
+        if (!item) return;
         editorPanel.classList.remove('hidden');
         editorHeading.textContent = `Edit product ${item.itemCode}`;
         relatedMeta.innerHTML = getRelatedText(item.product).map((text) => `<span>${text}</span>`).join('') || '<span>No related Series, S#, or Episode Number</span>';
@@ -711,7 +712,7 @@
       });
       updateForm.addEventListener('submit', (event) => {
         event.preventDefault();
-        if (activeIndex === -1) return;
+        if (activeIndex === -1 || batchItems[activeIndex]?.locked) return;
         const updates = collectCurrentUpdates();
         const validationError = getCompletionValidationError(updates);
         if (validationError) {
@@ -743,7 +744,7 @@
         downloadFile(`product-metadata-batch-${data.submittedAt.replace(/[:.]/g, '-')}.json`, JSON.stringify(batchJson, null, 2), 'application/json');
         downloadBatchXmlAndXslFiles({ ...batchJson, xmlFile, xslFile });
         batchItems = batchItems.map((item) => ({ ...item, locked: true }));
-        renderItemList();
+        selectItem(activeIndex);
         showMessage(submitMessage, 'success', 'Batch submitted, CSV updated, itemcodes locked, and JSON, XML, and XSL batch receipts downloaded.');
       }
       function submitLocalBatch(payload) {
@@ -769,7 +770,7 @@
         downloadFile(localCsv.filename || DEFAULT_CSV_FILENAME, stringifyCsv(localCsv.rows), 'text/csv');
         downloadFile('updated-itemcodes.json', JSON.stringify({ updatedItemCodes: [...localUpdatedItemCodes].sort() }, null, 2), 'application/json');
         batchItems = batchItems.map((item) => ({ ...item, locked: true }));
-        renderItemList();
+        selectItem(activeIndex);
         showMessage(submitMessage, 'success', 'Downloaded the batch JSON, XML, and XSL receipts, replacement CSV, and updated itemcode lock record.');
       }
       finalButton.addEventListener('click', async () => {
@@ -777,11 +778,13 @@
         const meta = getCurrentPayloadMeta();
         const payload = { ...meta, items: batchItems.map((item) => ({ itemCode: item.itemCode, updates: item.updates })) };
         finalButton.disabled = true;
+        completeButton.disabled = true;
         try {
           if (activeMode === 'local') submitLocalBatch(payload);
           else await submitServerBatch(payload);
         } catch (error) {
           finalButton.disabled = false;
+          completeButton.disabled = Boolean(batchItems[activeIndex]?.locked);
           showMessage(submitMessage, 'error', error.message === 'Failed to fetch' ? 'Cannot reach the backend. Start the server with `npm start`, or load the CSV in fallback mode and try again.' : error.message);
         }
       });
