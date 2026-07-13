@@ -189,6 +189,17 @@
         outline: 0;
       }
       textarea { min-height: 6rem; resize: vertical; }
+      input[type="file"] { color: var(--muted); }
+      .supporting-documents {
+        background: rgb(16 28 46 / 78%);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        margin: 1rem 0;
+        padding: 1rem;
+      }
+      .supporting-documents p { color: var(--muted); margin: 0.35rem 0 0.85rem; }
+      .supporting-file-list { color: #d8f3ff; display: grid; gap: 0.35rem; margin: 0.75rem 0 0; padding-left: 1.25rem; }
+      .supporting-file-list:empty { display: none; }
       button {
         background: #fff;
         border: 0;
@@ -430,6 +441,12 @@
                     <textarea id="notes" name="notes" placeholder="Optional note about this batch"></textarea>
                   </div>
                 </div>
+                <section class="supporting-documents" aria-labelledby="supporting-documents-heading">
+                  <h3 id="supporting-documents-heading">Supporting document(s)</h3>
+                  <p>Optional: attach .docx, .doc, .pdf, .xlsx, .xls, or .csv files for this batch.</p>
+                  <input id="supportingDocuments" name="supportingDocuments" type="file" accept=".docx,.doc,.pdf,.xlsx,.xls,.csv" multiple />
+                  <ul id="supporting-document-list" class="supporting-file-list" aria-live="polite"></ul>
+                </section>
                 <h3>Editable CSV metadata fields</h3>
                 <div id="field-list" class="grid"></div>
                 <div class="actions">
@@ -452,6 +469,7 @@
       const METADATA_SCHEMA = 'products-green-lit.metadata.schema';
       const PARENT_CHILD_SCHEMA = 'products-green-lit.parent-child.schema';
       const DEFAULT_CSV_FILENAME = 'Products - Green-lit (Metadata CSV) (7)_002.csv';
+      const ALLOWED_SUPPORTING_DOCUMENT_EXTENSIONS = ['.docx', '.doc', '.pdf', '.xlsx', '.xls', '.csv'];
 
       const lookupForm = document.querySelector('#lookup-form');
       const updateForm = document.querySelector('#update-form');
@@ -470,6 +488,8 @@
       const batchProgress = document.querySelector('#batch-progress');
       const csvFileInput = document.querySelector('#csvFile');
       const lockFileInput = document.querySelector('#lockFile');
+      const supportingDocumentsInput = document.querySelector('#supportingDocuments');
+      const supportingDocumentList = document.querySelector('#supporting-document-list');
 
       let activeMode = 'server';
       let activeIndex = -1;
@@ -572,6 +592,46 @@
       }
       function getRelatedText(product) {
         return RELATED_FIELDS.map((field) => [field, product[field]]).filter(([, value]) => value).map(([field, value]) => `${field}: ${value}`);
+      }
+      function formatFileSize(bytes) {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+      }
+      function getFileExtension(filename) {
+        const dotIndex = filename.lastIndexOf('.');
+        return dotIndex === -1 ? '' : filename.slice(dotIndex).toLowerCase();
+      }
+      function getSupportingDocumentValidationError(file) {
+        if (!ALLOWED_SUPPORTING_DOCUMENT_EXTENSIONS.includes(getFileExtension(file.name))) {
+          return `${file.name} is not supported. Upload .docx, .doc, .pdf, .xlsx, .xls, or .csv files only.`;
+        }
+        return '';
+      }
+      function renderSupportingDocumentList() {
+        const files = [...supportingDocumentsInput.files];
+        supportingDocumentList.innerHTML = files.map((file) => `<li>${file.name} (${formatFileSize(file.size)})</li>`).join('');
+      }
+      function readFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.addEventListener('load', () => resolve(String(reader.result).split(',')[1] || ''));
+          reader.addEventListener('error', () => reject(reader.error || new Error(`Unable to read ${file.name}.`)));
+          reader.readAsDataURL(file);
+        });
+      }
+      async function collectSupportingDocuments() {
+        const files = [...supportingDocumentsInput.files];
+        for (const file of files) {
+          const validationError = getSupportingDocumentValidationError(file);
+          if (validationError) throw new Error(validationError);
+        }
+        return Promise.all(files.map(async (file) => ({
+          name: file.name,
+          type: file.type || 'application/octet-stream',
+          size: file.size,
+          contentBase64: await readFileAsBase64(file),
+        })));
       }
       function getCurrentPayloadMeta() {
         const formData = new FormData(updateForm);
@@ -703,6 +763,7 @@
         localCsv = { filename: file.name || DEFAULT_CSV_FILENAME, headers, rows };
         showMessage(fileMessage, 'success', `Loaded ${file.name || DEFAULT_CSV_FILENAME}. Batch lookups will use the selected CSV until the page is refreshed.`);
       });
+      supportingDocumentsInput.addEventListener('change', renderSupportingDocumentList);
       lockFileInput.addEventListener('change', async () => {
         const [file] = lockFileInput.files;
         if (!file) return;
@@ -763,7 +824,8 @@
           const documentPayload = { itemCode: item.itemCode, submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, originalProduct, updatedProduct };
           return { itemCode: item.itemCode, submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, schemas: { metadata: METADATA_SCHEMA, parentChild: PARENT_CHILD_SCHEMA }, jsonFiles: buildSchemaDocuments(documentPayload) };
         });
-        const batchRecord = { submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, itemCodes: records.map((record) => record.itemCode), schemas: { metadata: METADATA_SCHEMA, parentChild: PARENT_CHILD_SCHEMA }, records };
+        const supportingDocuments = payload.supportingDocuments.map(({ contentBase64, ...document }) => document);
+        const batchRecord = { submittedAt, submittedBy: payload.submittedBy, notes: payload.notes, itemCodes: records.map((record) => record.itemCode), supportingDocuments, schemas: { metadata: METADATA_SCHEMA, parentChild: PARENT_CHILD_SCHEMA }, records };
         const batchXmlAndXsl = { ...batchRecord, xmlFile: buildBatchXmlDocument(batchRecord), xslFile: buildBatchXslDocument() };
         downloadFile(`product-metadata-batch-${submittedAt.replace(/[:.]/g, '-')}.json`, JSON.stringify(batchRecord, null, 2), 'application/json');
         downloadBatchXmlAndXslFiles(batchXmlAndXsl);
@@ -775,11 +837,12 @@
       }
       finalButton.addEventListener('click', async () => {
         if (finalButton.disabled) return;
-        const meta = getCurrentPayloadMeta();
-        const payload = { ...meta, items: batchItems.map((item) => ({ itemCode: item.itemCode, updates: item.updates })) };
         finalButton.disabled = true;
         completeButton.disabled = true;
         try {
+          const meta = getCurrentPayloadMeta();
+          const supportingDocuments = await collectSupportingDocuments();
+          const payload = { ...meta, supportingDocuments, items: batchItems.map((item) => ({ itemCode: item.itemCode, updates: item.updates })) };
           if (activeMode === 'local') submitLocalBatch(payload);
           else await submitServerBatch(payload);
         } catch (error) {

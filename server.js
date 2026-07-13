@@ -11,6 +11,7 @@ const CSV_FILE = path.join(__dirname, 'Products - Green-lit (Metadata CSV) (7)_0
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const RECORDS_DIR = path.join(__dirname, 'records');
 const SUBMISSIONS_DIR = path.join(__dirname, 'submissions');
+const SUPPORTING_DOCUMENTS_DIR = path.join(SUBMISSIONS_DIR, 'supporting-documents');
 const UPDATED_ITEMCODES_FILE = path.join(RECORDS_DIR, 'updated-itemcodes.json');
 export const EDITABLE_FIELDS = [
   'Press Title',
@@ -25,10 +26,14 @@ export const EDITABLE_FIELDS = [
 const PARENT_CHILD_FIELDS = ['Series', 'Season', 'S#', 'Episode', 'Episode Number'];
 const METADATA_SCHEMA = 'products-green-lit.metadata.schema';
 const PARENT_CHILD_SCHEMA = 'products-green-lit.parent-child.schema';
+const ALLOWED_SUPPORTING_DOCUMENT_EXTENSIONS = new Set(['.docx', '.doc', '.pdf', '.xlsx', '.xls', '.csv']);
+const MAX_REQUEST_BODY_BYTES = 50_000_000;
+const MAX_SUPPORTING_DOCUMENT_BYTES = 10_000_000;
 
 async function ensureStorage() {
   await mkdir(RECORDS_DIR, { recursive: true });
   await mkdir(SUBMISSIONS_DIR, { recursive: true });
+  await mkdir(SUPPORTING_DOCUMENTS_DIR, { recursive: true });
   try {
     await readFile(UPDATED_ITEMCODES_FILE, 'utf8');
   } catch (error) {
@@ -75,7 +80,7 @@ async function readRequestJson(req) {
   let body = '';
   for await (const chunk of req) {
     body += chunk;
-    if (body.length > 1_000_000) {
+    if (body.length > MAX_REQUEST_BODY_BYTES) {
       throw new Error('Request body is too large.');
     }
   }
@@ -88,6 +93,60 @@ function sanitizeItemCode(itemCode) {
 
 function sanitizeFilename(value) {
   return value.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+
+function sanitizeDocumentFilename(filename) {
+  const original = path.basename(String(filename || '').trim());
+  const extension = path.extname(original).toLowerCase();
+  const basename = path.basename(original, extension) || 'supporting-document';
+  return `${sanitizeFilename(basename)}${extension}`;
+}
+
+function getSupportingDocumentValidationError(document) {
+  const filename = String(document?.name || '').trim();
+  const extension = path.extname(filename).toLowerCase();
+  if (!filename) return 'Every supporting document requires a filename.';
+  if (!ALLOWED_SUPPORTING_DOCUMENT_EXTENSIONS.has(extension)) {
+    return `Supporting document ${filename} is not an allowed type. Upload .docx, .doc, .pdf, .xlsx, .xls, or .csv files only.`;
+  }
+  if (!Number.isFinite(document.size) || document.size < 0 || document.size > MAX_SUPPORTING_DOCUMENT_BYTES) {
+    return `Supporting document ${filename} must be ${MAX_SUPPORTING_DOCUMENT_BYTES / 1_000_000} MB or smaller.`;
+  }
+  if (typeof document.contentBase64 !== 'string' || document.contentBase64.length === 0) {
+    return `Supporting document ${filename} is missing file content.`;
+  }
+  return '';
+}
+
+async function saveSupportingDocuments(documents, timestamp) {
+  const normalizedDocuments = Array.isArray(documents) ? documents : [];
+  if (normalizedDocuments.length === 0) return [];
+
+  const batchDocumentDir = path.join(SUPPORTING_DOCUMENTS_DIR, `batch-${timestamp.replace(/[:.]/g, '-')}`);
+  await mkdir(batchDocumentDir, { recursive: true });
+
+  const savedDocuments = [];
+  for (const [index, document] of normalizedDocuments.entries()) {
+    const validationError = getSupportingDocumentValidationError(document);
+    if (validationError) throw new Error(validationError);
+
+    const originalName = String(document.name).trim();
+    const storedName = `${String(index + 1).padStart(2, '0')}-${sanitizeDocumentFilename(originalName)}`;
+    const buffer = Buffer.from(document.contentBase64, 'base64');
+    if (buffer.byteLength !== document.size) {
+      throw new Error(`Supporting document ${originalName} size does not match the uploaded content.`);
+    }
+    await writeFile(path.join(batchDocumentDir, storedName), buffer);
+    savedDocuments.push({
+      originalName,
+      storedName,
+      mimeType: String(document.type || 'application/octet-stream'),
+      size: buffer.byteLength,
+      storedPath: path.join('submissions', 'supporting-documents', path.basename(batchDocumentDir), storedName),
+    });
+  }
+  return savedDocuments;
 }
 
 function pickFields(product, fields) {
@@ -159,6 +218,8 @@ ${Object.entries(batchWithoutXmlAssets).map(([key, value]) => valueToXml(key, va
 </productMetadataBatch>
 `;
 }
+
+export { getSupportingDocumentValidationError };
 
 export function buildBatchXslDocument() {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -347,6 +408,17 @@ async function submitBatchUpdate(req, res) {
   const timestamp = new Date().toISOString();
   const submittedBy = String(payload.submittedBy || '').trim();
   const notes = String(payload.notes || '').trim();
+  const incomingSupportingDocuments = Array.isArray(payload.supportingDocuments) ? payload.supportingDocuments : [];
+  for (const document of incomingSupportingDocuments) {
+    const validationError = getSupportingDocumentValidationError(document);
+    if (validationError) return errorResponse(res, 400, validationError);
+  }
+  let supportingDocuments;
+  try {
+    supportingDocuments = await saveSupportingDocuments(incomingSupportingDocuments, timestamp);
+  } catch (error) {
+    return errorResponse(res, 400, error.message);
+  }
   const records = normalizedItems.map((item) => {
     const { originalProduct, updatedProduct } = applyUpdatesToRow({
       headers,
@@ -370,6 +442,7 @@ async function submitBatchUpdate(req, res) {
     submittedBy,
     notes,
     itemCodes: records.map((record) => record.itemCode),
+    supportingDocuments,
     schemas: {
       metadata: METADATA_SCHEMA,
       parentChild: PARENT_CHILD_SCHEMA,

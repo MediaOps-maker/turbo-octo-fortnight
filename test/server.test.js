@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EDITABLE_FIELDS, buildBatchXmlDocument, buildBatchXslDocument } from '../server.js';
+import { EDITABLE_FIELDS, buildBatchXmlDocument, buildBatchXslDocument, getSupportingDocumentValidationError } from '../server.js';
 
 test('server exposes only the approved editable metadata fields', () => {
   assert.deepEqual(EDITABLE_FIELDS, [
@@ -46,4 +46,22 @@ test('server builds one XML and XSL receipt for the product metadata batch JSON'
   assert.doesNotMatch(xmlFile, /xmlFile|xslFile/);
   assert.match(xslFile, /<xsl:stylesheet/);
   assert.match(xslFile, /Product Metadata Batch/);
+});
+
+
+test('server validates supporting document uploads by extension, size, and content', () => {
+  assert.equal(getSupportingDocumentValidationError({
+    name: 'brief.pdf',
+    type: 'application/pdf',
+    size: 4,
+    contentBase64: 'dGVzdA==',
+  }), '');
+  assert.match(
+    getSupportingDocumentValidationError({ name: 'script.exe', type: 'application/octet-stream', size: 4, contentBase64: 'dGVzdA==' }),
+    /not an allowed type/
+  );
+  assert.match(
+    getSupportingDocumentValidationError({ name: 'empty.csv', type: 'text/csv', size: 1, contentBase64: '' }),
+    /missing file content/
+  );
 });
